@@ -7,31 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v2"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// ContainerInfo holds custom information about a container.
-type ContainerInfo struct {
-	ID        string
-	Image     string
-	ImageID   string
-	Name      string
-	Uptime    string
-	ManagedBy string
-}
-
-type Client interface {
-	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
-	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
-	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
-	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
-	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
-}
 
 // DockerManager provides methods to interact with the Docker API.
 type DockerManager struct {
@@ -126,11 +106,6 @@ func (dm *DockerManager) RemoveContainer(ctx context.Context, containerID string
 	return dm.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{})
 }
 
-// ContainerConfig represents a container in the YAML config file.
-type ContainerConfig struct {
-	Name  string `yaml:"name"`
-	Image string `yaml:"image"`
-}
 
 // ExportManagedContainers exports all containers managed by hiveden to a YAML file.
 func (dm *DockerManager) ExportManagedContainers(ctx context.Context, filePath string) error {
