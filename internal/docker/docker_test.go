@@ -20,12 +20,15 @@ type mockClient struct {
 	stopContainerErr   bool
 	removeContainerErr bool
 	listContainersErr  bool
+	lastCreateConfig   *container.Config
+	ContainerListFunc  func(ctx context.Context, options container.ListOptions) ([]types.Container, error)
 }
 
 func (m *mockClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {
 	if m.createContainerErr {
 		return container.CreateResponse{}, errors.New("failed to create container")
 	}
+	m.lastCreateConfig = config
 	return container.CreateResponse{ID: "12345"}, nil
 }
 
@@ -51,11 +54,14 @@ func (m *mockClient) ContainerRemove(ctx context.Context, containerID string, op
 }
 
 func (m *mockClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+	if m.ContainerListFunc != nil {
+		return m.ContainerListFunc(ctx, options)
+	}
 	if m.listContainersErr {
 		return nil, errors.New("failed to list containers")
 	}
 	return []types.Container{
-		{ID: "12345", Names: []string{"/test-container"}},
+		{ID: "1234567890ab", Names: []string{"/test-container"}},
 	}, nil
 }
 
@@ -74,10 +80,15 @@ func TestNewDockerManager(t *testing.T) {
 }
 
 func TestCreateContainer(t *testing.T) {
-	dm := &DockerManager{cli: &mockClient{}}
+	mock := &mockClient{}
+	dm := &DockerManager{cli: mock}
 	_, err := dm.CreateContainer(context.Background(), "test-image", "test-container")
 	if err != nil {
 		t.Fatalf("CreateContainer() error = %v", err)
+	}
+
+	if managedBy, ok := mock.lastCreateConfig.Labels["managed-by"]; !ok || managedBy != "hiveden" {
+		t.Errorf("expected managed-by label to be 'hiveden', got '%s'", managedBy)
 	}
 }
 
@@ -139,7 +150,7 @@ func TestRemoveContainerError(t *testing.T) {
 
 func TestListContainers(t *testing.T) {
 	dm := &DockerManager{cli: &mockClient{}}
-	containers, err := dm.ListContainers(context.Background())
+	containers, err := dm.ListContainers(context.Background(), true)
 	if err != nil {
 		t.Fatalf("ListContainers() error = %v", err)
 	}
@@ -148,9 +159,39 @@ func TestListContainers(t *testing.T) {
 	}
 }
 
+func TestListContainersWithLabel(t *testing.T) {
+	mock := &mockClient{}
+	dm := &DockerManager{cli: mock}
+
+	// Mock a container with the managed-by label
+	mockContainer := types.Container{
+		ID:      "1234567890ab",
+		Names:   []string{"/test-container"},
+		Image:   "test-image",
+		ImageID: "img-123",
+		Labels:  map[string]string{"managed-by": "hiveden"},
+	}
+	mock.ContainerListFunc = func(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+		return []types.Container{mockContainer}, nil
+	}
+
+	containers, err := dm.ListContainers(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListContainers() error = %v", err)
+	}
+
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+
+	if containers[0].ManagedBy != "hiveden" {
+		t.Errorf("expected managed-by to be 'hiveden', got '%s'", containers[0].ManagedBy)
+	}
+}
+
 func TestListContainersError(t *testing.T) {
 	dm := &DockerManager{cli: &mockClient{listContainersErr: true}}
-	_, err := dm.ListContainers(context.Background())
+	_, err := dm.ListContainers(context.Background(), true)
 	if err == nil {
 		t.Fatal("expected an error, but got none")
 	}

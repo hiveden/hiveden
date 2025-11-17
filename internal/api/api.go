@@ -20,7 +20,8 @@ func NewAPIHandler(dm *docker.DockerManager) *APIHandler {
 
 // ListContainers handles the GET /containers endpoint.
 func (h *APIHandler) ListContainers(c *gin.Context) {
-containers, err := h.dm.ListContainers(c.Request.Context())
+	all := c.Query("all") == "true"
+	containers, err := h.dm.ListContainers(c.Request.Context(), all)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"gopkg.in/yaml.v2"
 	"github.com/hiveden/hiveden/internal/docker"
+	"gopkg.in/yaml.v2"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +17,7 @@ func main() {
 		log.Fatalf("Failed to create Docker manager: %v", err)
 	}
 
-	rootCmd := &cobra.Command{Use: "go-docker-manager"}
+	rootCmd := &cobra.Command{Use: "hiveden"}
 
 	var configFile string
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "cmd/cli/config.yaml", "config file (default is cmd/cli/config.yaml)")
@@ -36,6 +36,8 @@ func main() {
 
 	rootCmd.AddCommand(containersCmd)
 
+	containersCmd.AddCommand(buildExportCommand(dockerManager))
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -43,22 +45,28 @@ func main() {
 }
 
 func buildListCommand(dm *docker.DockerManager) *cobra.Command {
-	return &cobra.Command{
+	var all bool
+
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all containers",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			containers, err := dm.ListContainers(cmd.Context())
+			containers, err := dm.ListContainers(cmd.Context(), all)
 			if err != nil {
 				return err
 			}
 
 			for _, container := range containers {
-				fmt.Printf("ID: %s, Image: %s, Status: %s\n", container.ID[:12], container.Image, container.Status)
+				fmt.Printf("ID: %s, Name: %s, Image: %s, ImageID: %s, Uptime: %s, ManagedBy: %s\n", container.ID, container.Name, container.Image, container.ImageID, container.Uptime, container.ManagedBy)
 			}
 
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVar(&all, "all", false, "Show all containers (default shows just running)")
+
+	return cmd
 }
 
 func buildCreateCommand(dm *docker.DockerManager) *cobra.Command {
@@ -159,4 +167,23 @@ func buildRunAllCommand(dm *docker.DockerManager, configFile *string) *cobra.Com
 			return nil
 		},
 	}
+}
+
+func buildExportCommand(dm *docker.DockerManager) *cobra.Command {
+	var filePath string
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export all hiveden-managed containers to a config file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if filePath == "" {
+				return fmt.Errorf("file path must be specified with --file")
+			}
+			return dm.ExportManagedContainers(cmd.Context(), filePath)
+		},
+	}
+
+	cmd.Flags().StringVar(&filePath, "file", "", "File path to export the configuration to")
+
+	return cmd
 }
