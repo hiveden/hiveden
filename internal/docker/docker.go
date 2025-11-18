@@ -92,7 +92,7 @@ func formatUptime(createdAt int64) string {
 }
 
 // CreateContainer creates a new container and attaches it to the hiveden network.
-func (dm *DockerManager) CreateContainer(ctx context.Context, imageName string, containerName string) (container.CreateResponse, error) {
+func (dm *DockerManager) CreateContainer(ctx context.Context, config *ContainerConfig) (container.CreateResponse, error) {
 	networkExists, err := dm.NetworkExists(ctx, dm.networkName)
 	if err != nil {
 		return container.CreateResponse{}, fmt.Errorf("failed to check if network exists: %w", err)
@@ -102,8 +102,14 @@ func (dm *DockerManager) CreateContainer(ctx context.Context, imageName string, 
 		return container.CreateResponse{}, fmt.Errorf("network %s does not exist", dm.networkName)
 	}
 
+	env := make([]string, 0, len(config.Env))
+	for _, e := range config.Env {
+		env = append(env, fmt.Sprintf("%s=%s", e.Name, e.Value))
+	}
+
 	return dm.cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
+		Image: config.Image,
+		Env:   env,
 		Labels: map[string]string{
 			"managed-by": "hiveden",
 		},
@@ -112,7 +118,7 @@ func (dm *DockerManager) CreateContainer(ctx context.Context, imageName string, 
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				dm.networkName: {},
 			},
-		}, nil, containerName)
+		}, nil, config.Name)
 }
 
 // StartContainer starts a container.

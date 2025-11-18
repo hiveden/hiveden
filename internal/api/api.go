@@ -32,17 +32,14 @@ func (h *APIHandler) ListContainers(c *gin.Context) {
 
 // CreateContainer handles the POST /containers endpoint.
 func (h *APIHandler) CreateContainer(c *gin.Context) {
-	var reqBody struct {
-		ImageName     string `json:"imageName"`
-		ContainerName string `json:"containerName"`
-	}
+	var reqBody docker.ContainerConfig
 
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp, err := h.dm.CreateContainer(c.Request.Context(), reqBody.ImageName, reqBody.ContainerName)
+	resp, err := h.dm.CreateContainer(c.Request.Context(), &reqBody)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

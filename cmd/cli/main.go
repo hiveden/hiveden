@@ -88,7 +88,12 @@ func buildCreateCommand() *cobra.Command {
 		Use:   "create",
 		Short: "Create a new container",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := dockerManager.CreateContainer(cmd.Context(), imageName, containerName)
+			config := &docker.ContainerConfig{
+				Image: imageName,
+				Name:  containerName,
+				Env:   []docker.EnvVar{},
+			}
+			resp, err := dockerManager.CreateContainer(cmd.Context(), config)
 			if err != nil {
 				return err
 			}
@@ -138,15 +143,6 @@ func buildRemoveCommand() *cobra.Command {
 	}
 }
 
-type ContainerConfig struct {
-	Name  string `yaml:"name"`
-	Image string `yaml:"image"`
-}
-
-type Config struct {
-	Containers []ContainerConfig `yaml:"containers"`
-}
-
 func buildRunAllCommand(configFile *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "run-all",
@@ -157,14 +153,16 @@ func buildRunAllCommand(configFile *string) *cobra.Command {
 				return fmt.Errorf("failed to read config file: %w", err)
 			}
 
-			var config Config
+			var config struct {
+				Containers []docker.ContainerConfig `yaml:"containers"`
+			}
 			if err := yaml.Unmarshal(data, &config); err != nil {
 				return fmt.Errorf("failed to unmarshal config: %w", err)
 			}
 
 			for _, containerConfig := range config.Containers {
 				fmt.Printf("Creating container %s with image %s...\n", containerConfig.Name, containerConfig.Image)
-				resp, err := dockerManager.CreateContainer(cmd.Context(), containerConfig.Image, containerConfig.Name)
+				resp, err := dockerManager.CreateContainer(cmd.Context(), &containerConfig)
 				if err != nil {
 					log.Printf("Failed to create container %s: %v", containerConfig.Name, err)
 					continue

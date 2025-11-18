@@ -5,7 +5,6 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // ContainerInfo holds custom information about a container.
@@ -26,7 +25,7 @@ type NetworkInfo struct {
 
 // Client is an interface for the Docker client.
 type Client interface {
-	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error)
+	ContainerCreate(ctx context.Context, config *ContainerConfig) (container.CreateResponse, error)
 	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
 	ContainerStop(ctx context.Context, containerID string, options container.StopOptions) error
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
@@ -37,10 +36,17 @@ type Client interface {
 	NetworkExists(ctx context.Context, networkName string) (bool, error)
 }
 
+// EnvVar represents a key-value pair for an environment variable.
+type EnvVar struct {
+	Name  string `yaml:"name" json:"name"`
+	Value string `yaml:"value" json:"value"`
+}
+
 // ContainerConfig represents a container in the YAML config file.
 type ContainerConfig struct {
-	Name  string `yaml:"name"`
-	Image string `yaml:"image"`
+	Name  string   `yaml:"name" json:"name"`
+	Image string   `yaml:"image" json:"image"`
+	Env   []EnvVar `yaml:"env,omitempty" json:"env,omitempty"`
 }
 
 // NetworkConfig represents a network in the YAML config file.
