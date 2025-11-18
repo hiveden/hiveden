@@ -38,15 +38,15 @@ type Client interface {
 
 // EnvVar represents a key-value pair for an environment variable.
 type EnvVar struct {
-	Name  string `yaml:"name" json:"name"`
-	Value string `yaml:"value" json:"value"`
+	Name  string
+	Value string
 }
 
 // ContainerConfig represents a container in the YAML config file.
 type ContainerConfig struct {
-	Name  string   `yaml:"name" json:"name"`
-	Image string   `yaml:"image" json:"image"`
-	Env   []EnvVar `yaml:"env,omitempty" json:"env,omitempty"`
+	Name  string
+	Image string
+	Env   []EnvVar
 }
 
 // NetworkConfig represents a network in the YAML config file.

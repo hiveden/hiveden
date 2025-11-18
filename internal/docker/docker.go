@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/hiveden/hiveden/internal/configuration"
 	"gopkg.in/yaml.v2"
 )
 
@@ -143,20 +144,21 @@ func (dm *DockerManager) ExportManagedContainers(ctx context.Context, filePath s
 		return err
 	}
 
-	var managedContainers []ContainerConfig
+	var managedContainers []configuration.ContainerConfig
 	for _, c := range containers {
 		if c.ManagedBy == "hiveden" {
-			managedContainers = append(managedContainers, ContainerConfig{
+			managedContainers = append(managedContainers, configuration.ContainerConfig{
 				Name:  c.Name,
 				Image: c.Image,
 			})
 		}
 	}
 
-	config := struct {
-		Containers []ContainerConfig `yaml:"containers"`
-	}{
-		Containers: managedContainers,
+	config := configuration.Config{
+		Docker: configuration.DockerConfig{
+			NetworkID:  dm.networkName,
+			Containers: managedContainers,
+		},
 	}
 
 	data, err := yaml.Marshal(&config)

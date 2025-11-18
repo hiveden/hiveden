@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/hiveden/hiveden/internal/configuration"
 	"github.com/hiveden/hiveden/internal/docker"
 
 	"github.com/gin-gonic/gin"
@@ -32,14 +33,28 @@ func (h *APIHandler) ListContainers(c *gin.Context) {
 
 // CreateContainer handles the POST /containers endpoint.
 func (h *APIHandler) CreateContainer(c *gin.Context) {
-	var reqBody docker.ContainerConfig
+	var reqBody configuration.ContainerConfig
 
 	if err := c.ShouldBindJSON(&reqBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	resp, err := h.dm.CreateContainer(c.Request.Context(), &reqBody)
+	envVars := make([]docker.EnvVar, len(reqBody.Env))
+	for i, env := range reqBody.Env {
+		envVars[i] = docker.EnvVar{
+			Name:  env.Name,
+			Value: env.Value,
+		}
+	}
+
+	config := &docker.ContainerConfig{
+		Name:  reqBody.Name,
+		Image: reqBody.Image,
+		Env:   envVars,
+	}
+
+	resp, err := h.dm.CreateContainer(c.Request.Context(), config)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

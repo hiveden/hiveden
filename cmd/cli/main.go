@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hiveden/hiveden/internal/configuration"
 	"github.com/hiveden/hiveden/internal/docker"
 	"gopkg.in/yaml.v2"
 
@@ -153,16 +154,32 @@ func buildRunAllCommand(configFile *string) *cobra.Command {
 				return fmt.Errorf("failed to read config file: %w", err)
 			}
 
-			var config struct {
-				Containers []docker.ContainerConfig `yaml:"containers"`
-			}
+			var config configuration.Config
 			if err := yaml.Unmarshal(data, &config); err != nil {
 				return fmt.Errorf("failed to unmarshal config: %w", err)
 			}
 
-			for _, containerConfig := range config.Containers {
+			dockerManager, err = docker.NewDockerManager(config.Docker.NetworkID)
+			if err != nil {
+				return fmt.Errorf("failed to create Docker manager: %v", err)
+			}
+
+			for _, containerConfig := range config.Docker.Containers {
+				envVars := make([]docker.EnvVar, len(containerConfig.Env))
+				for i, env := range containerConfig.Env {
+					envVars[i] = docker.EnvVar{
+						Name:  env.Name,
+						Value: env.Value,
+					}
+				}
+				dc := &docker.ContainerConfig{
+					Name:  containerConfig.Name,
+					Image: containerConfig.Image,
+					Env:   envVars,
+				}
+
 				fmt.Printf("Creating container %s with image %s...\n", containerConfig.Name, containerConfig.Image)
-				resp, err := dockerManager.CreateContainer(cmd.Context(), &containerConfig)
+				resp, err := dockerManager.CreateContainer(cmd.Context(), dc)
 				if err != nil {
 					log.Printf("Failed to create container %s: %v", containerConfig.Name, err)
 					continue
