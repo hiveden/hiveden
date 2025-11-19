@@ -1,18 +1,7 @@
 import psutil
 
-from hiveden.hwosinfo.os import get_os_info
+from hiveden.shares.zfs import ZFSManager
 
-try:
-    import libzfs
-except ImportError:
-    os_info = get_os_info()
-    distro = os_info.get("id").lower()
-    if distro in ["arch"]:
-        raise ImportError("py-libzfs is not installed. Please install it with: pacman -S python-pylibzfs")
-    elif distro in ["debian", "ubuntu"]:
-        raise ImportError("py-libzfs is not installed. Please install it with: apt-get install py-libzfs")
-    else:
-        raise ImportError("py-libzfs is not installed. Please install it using your system package manager.")
 
 def get_hw_info():
     """Return a dictionary with hardware information."""
@@ -46,18 +35,14 @@ def get_hw_info():
     }
     return info
 
+
 def get_available_devices():
     """Return a list of devices available for ZFS pools."""
     all_devices = [p.device for p in psutil.disk_partitions()]
-    used_devices = []
     try:
-        zfs = libzfs.ZFS()
-        for pool in zfs.pools:
-            for vdev in pool.vdev_tree.children:
-                if vdev.is_leaf:
-                    used_devices.append(vdev.path)
-    except Exception:
-        # libzfs not installed or no pools exist
-        pass
+        manager = ZFSManager()
+        used_devices = manager.get_all_devices()
+    except ImportError:
+        used_devices = []
 
     return [d for d in all_devices if d not in used_devices]

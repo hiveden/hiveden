@@ -4,7 +4,7 @@ try:
     import libzfs
 except ImportError:
     os_info = get_os_info()
-    distro = os_info.get("id").lower()
+    distro = os_info.get("id", "").lower()
     if distro in ["arch"]:
         raise ImportError("py-libzfs is not installed. Please install it with: pacman -S python-pylibzfs")
     elif distro in ["debian", "ubuntu"]:
@@ -37,3 +37,12 @@ class ZFSManager:
     def destroy_dataset(self, name):
         dataset = self.zfs.get_dataset(name)
         dataset.delete()
+
+    def get_all_devices(self):
+        """Return a list of all devices used by ZFS pools."""
+        used_devices = []
+        for pool in self.zfs.pools:
+            for vdev in pool.vdev_tree.children:
+                if vdev.is_leaf:
+                    used_devices.append(vdev.path)
+        return used_devices
