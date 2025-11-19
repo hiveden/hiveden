@@ -38,3 +38,6 @@ gha-creds-*.json
 build/
 dist/
 *.egg-info/
+
+# Gemini file
+GEMINI.md
