@@ -33,12 +33,13 @@ def docker(ctx):
 
 
 @docker.command(name="list-containers")
+@click.option('--only-managed', is_flag=True, help='List only containers managed by hiveden.')
 @click.pass_context
-def list_containers(ctx):
+def list_containers(ctx, only_managed):
     """List all docker containers."""
     from hiveden.docker.containers import list_containers
 
-    containers = list_containers(all=True)
+    containers = list_containers(all=True, only_managed=only_managed)
     for container in containers:
         click.echo(f"{container.name} - {container.image} - {container.status}")
 

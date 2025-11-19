@@ -13,7 +13,7 @@ def create_container(image, command=None, network_name="hiveden-net", **kwargs):
         create_network(network_name)
 
     labels = kwargs.get("labels", {})
-    labels["hiveden.managed"] = "true"
+    labels["managed-by"] = "hiveden"
     kwargs["labels"] = labels
 
     container = client.containers.create(image, command, **kwargs)
@@ -27,9 +27,12 @@ def get_container(container_id):
     return client.containers.get(container_id)
 
 
-def list_containers(all=False, **kwargs):
+def list_containers(all=False, only_managed=False, **kwargs):
     """List all Docker containers."""
     response_data = []
+    if only_managed:
+        kwargs["filters"] = {"label": "managed-by=hiveden"}
+
     for c in client.containers.list(all=all, **kwargs):
         try:
             image = c.image.tags[0] if c.image and c.image.tags else "N/A"
@@ -40,7 +43,7 @@ def list_containers(all=False, **kwargs):
                 name=c.name,
                 image=image,
                 status=c.status,
-                managed_by_hiveden="hiveden.managed" in c.labels and c.labels["hiveden.managed"] == "true",
+                managed_by_hiveden="managed-by" in c.labels and c.labels["managed-by"] == "hiveden",
             )
         )
     return response_data
