@@ -106,6 +106,23 @@ def get_one_network(network_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/info/os", response_model=DataResponse, tags=["Info"])
+def get_os_info_endpoint():
+    from hiveden.hwosinfo.os import get_os_info
+    try:
+        return DataResponse(data=get_os_info())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/info/hw", response_model=DataResponse, tags=["Info"])
+def get_hw_info_endpoint():
+    from hiveden.hwosinfo.hw import get_hw_info
+    try:
+        return DataResponse(data=get_hw_info())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/docker/networks/{network_id}", response_model=SuccessResponse, tags=["Docker"])
 def remove_one_network(network_id: str):
     from hiveden.docker.networks import remove_network

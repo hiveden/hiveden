@@ -76,3 +76,19 @@ class SuccessResponse(BaseResponse):
 
 class ErrorResponse(BaseResponse):
     status: str = "error"
+
+
+class OSInfo(BaseModel):
+    system: str
+    release: str
+    version: str
+    machine: str
+    processor: str
+    hostname: str
+
+
+class HWInfo(BaseModel):
+    cpu: Dict
+    memory: Dict
+    disk: Dict
+    network: Dict
