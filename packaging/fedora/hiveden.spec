@@ -7,6 +7,7 @@ License:        MIT
 URL:            https://github.com/hiveden/hiveden
 Source0:        https://github.com/hiveden/hiveden/archive/v%{version}.tar.gz
 Source1:        hiveden.service
+Source2:        hiveden.default.yaml
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
@@ -33,6 +34,7 @@ exit 0
 %install
 %py3_install
 install -D -m644 %{SOURCE1} %{buildroot}%{_unitdir}/hiveden.service
+install -D -m644 %{SOURCE2} %{buildroot}%{_sysconfdir}/hiveden/config.yaml
 
 %post
 %systemd_post hiveden.service
@@ -49,3 +51,4 @@ install -D -m644 %{SOURCE1} %{buildroot}%{_unitdir}/hiveden.service
 %{python3_sitelib}/hiveden
 %{python3_sitelib}/hiveden-*.dist-info
 %{_unitdir}/hiveden.service
+%config(noreplace) %{_sysconfdir}/hiveden/config.yaml

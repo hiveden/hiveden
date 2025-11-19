@@ -8,8 +8,8 @@ url="https://github.com/hiveden/hiveden"
 license=('MIT')
 depends=('python' 'python-pip')
 makedepends=('python-build' 'python-installer' 'python-wheel')
-source=("hiveden-$pkgver.tar.gz::https://github.com/hiveden/hiveden/archive/v$pkgver.tar.gz" "hiveden.service")
-sha256sums=('SKIP' 'SKIP')
+source=("hiveden-$pkgver.tar.gz::https://github.com/hiveden/hiveden/archive/v$pkgver.tar.gz" "hiveden.service" "hiveden.default.yaml")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 package() {
   cd "$srcdir/hiveden-$pkgver"
@@ -17,6 +17,7 @@ package() {
   pip install --root="$pkgdir" --prefix=/usr dist/*.whl
 
   install -D -m644 "$srcdir/hiveden.service" "$pkgdir/usr/lib/systemd/system/hiveden.service"
+  install -D -m644 "$srcdir/hiveden.default.yaml" "$pkgdir/etc/hiveden/config.yaml"
 
   # Create user and group
   getent group hiveden || groupadd -r hiveden

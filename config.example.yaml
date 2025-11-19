@@ -1,0 +1,11 @@
+# Example configuration for Hiveden
+
+docker:
+  # The name of the Docker network to use.
+  network_name: hiveden-net
+
+  # A list of containers to manage.
+  containers:
+    - name: my-container
+      image: ubuntu:latest
+      command: sleep infinity

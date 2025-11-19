@@ -1,15 +1,28 @@
+import os
+
 import click
 import yaml
 
 
 @click.group()
-@click.option("--config", default="config.yaml", help="Path to the configuration file.")
+@click.option('--config', help='Path to the configuration file.')
 @click.pass_context
 def main(ctx, config):
     """Hiveden CLI"""
     ctx.ensure_object(dict)
-    with open(config, "r") as f:
-        ctx.obj["config"] = yaml.safe_load(f)
+    if config:
+        config_path = config
+    elif os.path.exists('config.yaml'):
+        config_path = 'config.yaml'
+    elif os.path.exists(os.path.expanduser('~/.config/hiveden/config.yaml')):
+        config_path = os.path.expanduser('~/.config/hiveden/config.yaml')
+    elif os.path.exists('/etc/hiveden/config.yaml'):
+        config_path = '/etc/hiveden/config.yaml'
+    else:
+        raise click.FileError('Configuration file not found.')
+
+    with open(config_path, 'r') as f:
+        ctx.obj['config'] = yaml.safe_load(f)
 
 
 @main.group()
