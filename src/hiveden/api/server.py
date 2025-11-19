@@ -1,23 +1,22 @@
-from typing import List
-
 import yaml
 from fastapi import Body, FastAPI, HTTPException
 
 from hiveden.api.dtos import (
-    ConfigResponse,
-    Container,
     ContainerCreate,
     DataResponse,
-    Network,
     NetworkCreate,
     SuccessResponse,
 )
 from hiveden.docker.actions import apply_configuration
 
-app = FastAPI()
+app = FastAPI(
+    title="Hiveden API",
+    description="An API for managing your personal server.",
+    version="0.1.0",
+)
 
 
-@app.post("/config", response_model=DataResponse)
+@app.post("/config", response_model=DataResponse, tags=["Config"])
 def submit_config(config: str = Body(...)):
     """Submit a YAML configuration."""
     try:
@@ -30,7 +29,7 @@ def submit_config(config: str = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/docker/containers", response_model=DataResponse)
+@app.get("/docker/containers", response_model=DataResponse, tags=["Docker"])
 def list_all_containers():
     from hiveden.docker.containers import list_containers
     try:
@@ -40,7 +39,7 @@ def list_all_containers():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/docker/containers", response_model=DataResponse)
+@app.post("/docker/containers", response_model=DataResponse, tags=["Docker"])
 def create_new_container(container: ContainerCreate):
     from hiveden.docker.containers import create_container
     try:
@@ -50,7 +49,7 @@ def create_new_container(container: ContainerCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/docker/containers/{container_id}", response_model=DataResponse)
+@app.get("/docker/containers/{container_id}", response_model=DataResponse, tags=["Docker"])
 def get_one_container(container_id: str):
     from hiveden.docker.containers import get_container
     try:
@@ -59,7 +58,7 @@ def get_one_container(container_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/docker/containers/{container_id}/stop", response_model=DataResponse)
+@app.post("/docker/containers/{container_id}/stop", response_model=DataResponse, tags=["Docker"])
 def stop_one_container(container_id: str):
     from hiveden.docker.containers import stop_container
     try:
@@ -68,7 +67,7 @@ def stop_one_container(container_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/docker/containers/{container_id}", response_model=SuccessResponse)
+@app.delete("/docker/containers/{container_id}", response_model=SuccessResponse, tags=["Docker"])
 def remove_one_container(container_id: str):
     from hiveden.docker.containers import remove_container
     try:
@@ -78,7 +77,7 @@ def remove_one_container(container_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/docker/networks", response_model=DataResponse)
+@app.get("/docker/networks", response_model=DataResponse, tags=["Docker"])
 def list_all_networks():
     from hiveden.docker.networks import list_networks
     try:
@@ -88,7 +87,7 @@ def list_all_networks():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/docker/networks", response_model=DataResponse)
+@app.post("/docker/networks", response_model=DataResponse, tags=["Docker"])
 def create_new_network(network: NetworkCreate):
     from hiveden.docker.networks import create_network
     try:
@@ -98,7 +97,7 @@ def create_new_network(network: NetworkCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/docker/networks/{network_id}", response_model=DataResponse)
+@app.get("/docker/networks/{network_id}", response_model=DataResponse, tags=["Docker"])
 def get_one_network(network_id: str):
     from hiveden.docker.networks import get_network
     try:
@@ -107,7 +106,7 @@ def get_one_network(network_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/docker/networks/{network_id}", response_model=SuccessResponse)
+@app.delete("/docker/networks/{network_id}", response_model=SuccessResponse, tags=["Docker"])
 def remove_one_network(network_id: str):
     from hiveden.docker.networks import remove_network
     try:
