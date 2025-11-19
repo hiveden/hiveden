@@ -42,11 +42,27 @@ def create_container(
         for port in ports:
             port_bindings[f"{port.container_port}/{port.protocol}"] = port.host_port
 
-    container = client.containers.create(
-        image, command, environment=environment, ports=port_bindings, **kwargs
-    )
+    container_name = kwargs.get("name", "")
+    try:
+        container = client.containers.get(container_name)
+        print(f"Container '{container_name}' already exists. Recreating with new configuration...")
+        container.stop()
+        container.remove()
+        container = client.containers.create(
+            image, command, environment=environment, ports=port_bindings, **kwargs
+        )
+        print(f"Container '{container_name}' recreated.")
+    except errors.NotFound:
+        container = client.containers.create(
+            image, command, environment=environment, ports=port_bindings, **kwargs
+        )
+        print(f"Container '{container_name}' created.")
+
     network = client.networks.get(network_name)
     network.connect(container)
+    container.start()
+    print(f"Container '{container_name}' started.")
+
     return container
 
 

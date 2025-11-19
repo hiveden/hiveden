@@ -25,24 +25,17 @@ def apply_configuration(config):
     for container_config in config["containers"]:
         container = DockerContainer(**container_config)
         try:
-            containers = list_containers(all=True, filters={"name": container.name})
-            if not containers:
-                create_container(
-                    image=container.image,
-                    name=container.name,
-                    command=container.command,
-                    detach=True,
-                    network_name=network_name,
-                    env=container.env,
-                    ports=container.ports,
-                )
-                messages.append(f"Container '{container.name}' created.")
-            else:
-                messages.append(f"Container '{container.name}' already exists.")
-        except errors.ImageNotFound:
-            messages.append(
-                f"Image '{container.image}' not found for container '{container.name}'."
+            create_container(
+                image=container.image,
+                name=container.name,
+                command=container.command,
+                detach=True,
+                network_name=network_name,
+                env=container.env,
+                ports=container.ports,
             )
+        except errors.ImageNotFound as e:
+            messages.append(str(e))
         except errors.APIError as e:
             messages.append(f"Error creating container '{container.name}': {e}")
 
