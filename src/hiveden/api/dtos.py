@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -59,3 +59,20 @@ class Network(BaseModel):
 
 class ConfigResponse(BaseModel):
     messages: List[str]
+
+
+class BaseResponse(BaseModel):
+    status: str = "success"
+    message: Optional[str] = None
+
+
+class DataResponse(BaseResponse):
+    data: Optional[Any] = None
+
+
+class SuccessResponse(BaseResponse):
+    pass
+
+
+class ErrorResponse(BaseResponse):
+    status: str = "error"
