@@ -27,6 +27,7 @@ class DockerContainer(BaseModel):
     env: Optional[List[EnvVar]] = None
     ports: Optional[List[Port]] = None
     mounts: Optional[List[Mount]] = None
+    labels: Optional[Dict[str, str]] = None
 
 class NetworkCreate(BaseModel):
     name: str

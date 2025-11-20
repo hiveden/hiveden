@@ -124,6 +124,8 @@ docker:
       mounts:
         - source: /path/to/host/dir
           target: /path/in/container
+      labels:
+        my-label: my-value
       ports:
         - host_port: 8080
           container_port: 80

@@ -34,6 +34,7 @@ def apply_configuration(config):
                 env=container.env,
                 ports=container.ports,
                 mounts=container.mounts,
+                labels=container.labels,
             )
         except errors.ImageNotFound as e:
             messages.append(str(e))

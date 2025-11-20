@@ -15,6 +15,7 @@ def create_container(
     env=None,
     ports=None,
     mounts=None,
+    labels=None,
     **kwargs,
 ):
     """Create a new Docker container and connect it to the hiveden network."""
@@ -29,9 +30,11 @@ def create_container(
     if not network_exists(network_name):
         create_network(network_name)
 
-    labels = kwargs.get("labels", {})
-    labels["managed-by"] = "hiveden"
-    kwargs["labels"] = labels
+    container_labels = kwargs.get("labels", {})
+    if labels:
+        container_labels.update(labels)
+    container_labels["managed-by"] = "hiveden"
+    kwargs["labels"] = container_labels
 
     environment = []
     if env:
