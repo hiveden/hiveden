@@ -87,6 +87,52 @@ def describe_container(name, id):
         raise click.ClickException(e)
 
 
+@docker.command(name="stop-container")
+@click.option(
+    "--all",
+    "all_containers",
+    is_flag=True,
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["managed", "name"],
+    help="Stop all containers.",
+)
+@click.option(
+    "--managed",
+    is_flag=True,
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["all_containers", "name"],
+    help="Stop only containers managed by hiveden.",
+)
+@click.option(
+    "--name",
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["all_containers", "managed"],
+    help="The name of the container to stop.",
+)
+def stop_container(all_containers, managed, name):
+    """Stop docker containers."""
+    from hiveden.docker.containers import list_containers, stop_containers
+
+    if not all_containers and not managed and not name:
+        raise click.UsageError(
+            "Either --all, --managed, or --name must be provided."
+        )
+
+    containers_to_stop = []
+    if all_containers:
+        containers_to_stop = list_containers(all=True)
+    elif managed:
+        containers_to_stop = list_containers(only_managed=True)
+    elif name:
+        containers_to_stop = list_containers(names=[name])
+
+    if not containers_to_stop:
+        click.echo("No containers found to stop.")
+        return
+
+    stop_containers(containers_to_stop)
+
+
 @main.command()
 @click.option("--config", help="Path to the configuration file.")
 def apply(config):

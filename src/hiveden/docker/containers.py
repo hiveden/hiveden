@@ -71,10 +71,13 @@ def get_container(container_id):
     return client.containers.get(container_id)
 
 
-def list_containers(all=False, only_managed=False, **kwargs):
+def list_containers(all=False, only_managed=False, names=None, **kwargs):
     """List all Docker containers."""
     if only_managed:
         kwargs["filters"] = {"label": "managed-by=hiveden"}
+
+    if names:
+        kwargs["filters"] = {"name": names}
 
     response_data = []
     for c in client.containers.list(all=all, **kwargs):
@@ -108,6 +111,16 @@ def list_containers(all=False, only_managed=False, **kwargs):
             )
         )
     return response_data
+
+
+def stop_containers(containers):
+    """Stop a list of containers."""
+    for container in containers:
+        if container.Status != "running":
+            print(f"Container '{container.Names[0]}' is already stopped.")
+            continue
+        stop_container(container.Id)
+        print(f"Container '{container.Names[0]}' stopped.")
 
 
 def stop_container(container_id):
