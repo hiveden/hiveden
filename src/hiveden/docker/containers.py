@@ -14,6 +14,7 @@ def create_container(
     network_name="hiveden-net",
     env=None,
     ports=None,
+    mounts=None,
     **kwargs,
 ):
     """Create a new Docker container and connect it to the hiveden network."""
@@ -42,6 +43,11 @@ def create_container(
         for port in ports:
             port_bindings[f"{port.container_port}/{port.protocol}"] = port.host_port
 
+    volumes = {}
+    if mounts:
+        for mount in mounts:
+            volumes[mount.source] = {"bind": mount.target, "mode": "rw"}
+
     container_name = kwargs.get("name", "")
     try:
         container = client.containers.get(container_name)
@@ -49,12 +55,22 @@ def create_container(
         container.stop()
         container.remove()
         container = client.containers.create(
-            image, command, environment=environment, ports=port_bindings, **kwargs
+            image,
+            command,
+            environment=environment,
+            ports=port_bindings,
+            volumes=volumes,
+            **kwargs,
         )
         print(f"Container '{container_name}' recreated.")
     except errors.NotFound:
         container = client.containers.create(
-            image, command, environment=environment, ports=port_bindings, **kwargs
+            image,
+            command,
+            environment=environment,
+            ports=port_bindings,
+            volumes=volumes,
+            **kwargs,
         )
         print(f"Container '{container_name}' created.")
 

@@ -13,12 +13,20 @@ class Port(BaseModel):
     container_port: int
     protocol: str = "tcp"
 
+
+class Mount(BaseModel):
+    source: str
+    target: str
+    type: str = "bind"
+
+
 class DockerContainer(BaseModel):
     name: str
     image: str
     command: Optional[str] = None
     env: Optional[List[EnvVar]] = None
     ports: Optional[List[Port]] = None
+    mounts: Optional[List[Mount]] = None
 
 class NetworkCreate(BaseModel):
     name: str

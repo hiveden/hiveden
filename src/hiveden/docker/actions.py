@@ -33,6 +33,7 @@ def apply_configuration(config):
                 network_name=network_name,
                 env=container.env,
                 ports=container.ports,
+                mounts=container.mounts,
             )
         except errors.ImageNotFound as e:
             messages.append(str(e))

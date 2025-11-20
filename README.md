@@ -121,6 +121,9 @@ docker:
       env:
         - name: MY_VAR
           value: my_value
+      mounts:
+        - source: /path/to/host/dir
+          target: /path/in/container
       ports:
         - host_port: 8080
           container_port: 80
