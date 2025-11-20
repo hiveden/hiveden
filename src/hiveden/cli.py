@@ -133,6 +133,52 @@ def stop_container(all_containers, managed, name):
     stop_containers(containers_to_stop)
 
 
+@docker.command(name="delete-container")
+@click.option(
+    "--all",
+    "all_containers",
+    is_flag=True,
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["managed", "name"],
+    help="Delete all containers.",
+)
+@click.option(
+    "--managed",
+    is_flag=True,
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["all_containers", "name"],
+    help="Delete only containers managed by hiveden.",
+)
+@click.option(
+    "--name",
+    cls=MutuallyExclusiveOption,
+    mutually_exclusive=["all_containers", "managed"],
+    help="The name of the container to delete.",
+)
+def delete_container(all_containers, managed, name):
+    """Delete docker containers."""
+    from hiveden.docker.containers import list_containers, delete_containers
+
+    if not all_containers and not managed and not name:
+        raise click.UsageError(
+            "Either --all, --managed, or --name must be provided."
+        )
+
+    containers_to_delete = []
+    if all_containers:
+        containers_to_delete = list_containers(all=True)
+    elif managed:
+        containers_to_delete = list_containers(only_managed=True)
+    elif name:
+        containers_to_delete = list_containers(names=[name])
+
+    if not containers_to_delete:
+        click.echo("No containers found to delete.")
+        return
+
+    delete_containers(containers_to_delete)
+
+
 @main.command()
 @click.option("--config", help="Path to the configuration file.")
 def apply(config):

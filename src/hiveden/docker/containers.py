@@ -137,6 +137,15 @@ def remove_container(container_id):
     return container
 
 
+def delete_containers(containers):
+    """Delete a list of containers."""
+    for container in containers:
+        if container.Status == "running":
+            stop_container(container.Id)
+        remove_container(container.Id)
+        print(f"Container '{container.Names[0]}' deleted.")
+
+
 def describe_container(container_id=None, name=None):
     """Describe a Docker container by its ID or name."""
     search_by = ""
