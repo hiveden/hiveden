@@ -41,3 +41,5 @@ dist/
 
 # Gemini file
 GEMINI.md
+
+__pycache__
