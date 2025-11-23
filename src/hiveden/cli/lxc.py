@@ -63,3 +63,51 @@ def delete_lxc_container(name):
         click.echo(f"Container '{name}' deleted.")
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
+
+@lxc.group()
+def scripts():
+    """Manage community scripts."""
+    pass
+
+@scripts.command(name="list")
+def list_scripts():
+    """List available community scripts."""
+    try:
+        from hiveden.lxc.scripts import get_community_scripts
+        scripts = get_community_scripts()
+        
+        if not scripts:
+            click.echo("No scripts found.")
+            return
+
+        click.echo(f"Found {len(scripts)} scripts:")
+        click.echo(f"{'SLUG':<25} {'TYPE':<10} {'NAME':<30} {'DESCRIPTION'}")
+        click.echo("-" * 100)
+        
+        for script in scripts:
+            # Truncate description if too long
+            desc = script.description.replace('\n', ' ')
+            if len(desc) > 50:
+                desc = desc[:47] + "..."
+            
+            click.echo(f"{script.slug:<25} {script.type:<10} {script.name:<30} {desc}")
+            
+    except Exception as e:
+        click.echo(f"Error fetching scripts: {e}", err=True)
+
+@scripts.command(name="install")
+@click.argument("container_name")
+@click.argument("script_slug")
+def install(container_name, script_slug):
+    """
+    Install a community script into a container.
+    
+    CONTAINER_NAME: Name of the target LXC container.
+    SCRIPT_SLUG: Slug of the script to install (e.g. 'adguard', 'docker').
+    """
+    try:
+        from hiveden.lxc.scripts import install_script
+        install_script(container_name, script_slug)
+    except Exception as e:
+        click.echo(f"Error installing script: {e}", err=True)
+        sys.exit(1)
