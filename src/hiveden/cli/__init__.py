@@ -55,9 +55,12 @@ def apply(config):
 @main.command()
 @click.option('--host', default='127.0.0.1', help='The host to bind to.')
 @click.option('--port', default=8000, help='The port to bind to.')
-def server(host, port):
+@click.option('--db-url', default='sqlite:///hiveden.db', help='The database URL.')
+def server(host, port, db_url):
     """Run the FastAPI server."""
     import uvicorn
+    
+    os.environ["HIVEDEN_DB_URL"] = db_url
 
     from hiveden.api.server import app
     uvicorn.run(app, host=host, port=port)
