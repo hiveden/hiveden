@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from typing import Optional
 
 from hiveden.api.dtos import DataResponse, SuccessResponse
 from hiveden.docker.models import DockerContainer as ContainerCreate, NetworkCreate
@@ -51,6 +53,43 @@ def remove_one_container(container_id: str):
         return SuccessResponse(message=f"Container {container_id} removed.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/containers/{container_id}/logs")
+def stream_container_logs(
+    container_id: str,
+    follow: Optional[bool] = True,
+    tail: Optional[int] = 100
+):
+    """Stream container logs in real-time using Server-Sent Events.
+    
+    Args:
+        container_id: Container ID or name
+        follow: If True, stream logs in real-time (default: True)
+        tail: Number of lines to show from the end (default: 100)
+    
+    Returns:
+        StreamingResponse with text/event-stream content type
+    """
+    from hiveden.docker.containers import DockerManager
+    
+    def event_generator():
+        try:
+            manager = DockerManager()
+            for log_line in manager.stream_logs(container_id, follow=follow, tail=tail):
+                # Format as Server-Sent Event
+                yield f"data: {log_line}\n\n"
+        except Exception as e:
+            yield f"data: Error: {str(e)}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @router.get("/networks", response_model=DataResponse)

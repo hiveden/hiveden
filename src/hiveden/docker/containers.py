@@ -196,6 +196,24 @@ class DockerManager:
             )
         return response_data
 
+    def stream_logs(self, container_id, follow=True, tail=100):
+        """Stream logs from a Docker container.
+        
+        Args:
+            container_id: Container ID or name
+            follow: If True, stream logs in real-time
+            tail: Number of lines to show from the end (default 100)
+        
+        Yields:
+            Log lines as they are generated
+        """
+        container = self.client.containers.get(container_id)
+        
+        # Stream logs
+        for log_line in container.logs(stream=follow, follow=follow, tail=tail):
+            # Decode bytes to string and yield
+            yield log_line.decode('utf-8', errors='replace')
+
     def stop_containers(self, containers):
         """Stop a list of containers."""
         for container in containers:
