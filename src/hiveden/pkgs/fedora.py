@@ -1,7 +1,9 @@
 import shutil
 import subprocess
+from typing import List
 
 from hiveden.pkgs.base import PackageManager
+from hiveden.pkgs.models import RequiredPackage
 
 
 class FedoraPackageManager(PackageManager):
@@ -32,5 +34,8 @@ class FedoraPackageManager(PackageManager):
 
     def get_check_installed_command(self, package: str) -> str:
         return f"{self.pm} list installed {package}"
+
+    def get_required_packages(self) -> List[RequiredPackage]:
+        return []
 
 
