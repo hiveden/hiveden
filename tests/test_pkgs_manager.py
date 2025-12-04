@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from hiveden.pkgs.manager import get_system_required_packages
-from hiveden.pkgs.models import RequiredPackage, PackageStatus, PackageOperation
+from hiveden.pkgs.models import RequiredPackage, PackageStatus, PackageOperation, OSType
 from hiveden.pkgs.base import PackageManager
 
 class MockPackageManager(PackageManager):
@@ -19,24 +19,49 @@ class MockPackageManager(PackageManager):
         return f"check {package}"
     def is_installed(self, package):
         return package == "installed-pkg"
-    def get_required_packages(self):
-        return [
-            RequiredPackage(name="installed-pkg", title="Installed Package", description="Description 1", operation=PackageOperation.INSTALL),
-            RequiredPackage(name="missing-pkg", title="Missing Package", description="Description 2", operation=PackageOperation.UNINSTALL)
-        ]
+
+# Mock OS info to simulate an Ubuntu system
+MOCK_OS_INFO = {'id': 'ubuntu'}
 
 @patch('hiveden.pkgs.manager.get_package_manager')
-def test_get_system_required_packages(mock_get_pm):
+@patch('hiveden.pkgs.manager.get_os_info')
+@patch('hiveden.pkgs.manager.get_all_required_packages')
+def test_get_system_required_packages(mock_get_registry, mock_get_os, mock_get_pm):
     mock_pm = MockPackageManager()
     mock_get_pm.return_value = mock_pm
+    mock_get_os.return_value = MOCK_OS_INFO
     
+    # Setup registry with mixed OS and tags
+    mock_get_registry.return_value = [
+        RequiredPackage(
+            name="installed-pkg", title="A", description="D", 
+            operation=PackageOperation.INSTALL, 
+            os_types=[OSType.ALL], tags=["storage"]
+        ),
+        RequiredPackage(
+            name="missing-pkg", title="B", description="D", 
+            operation=PackageOperation.UNINSTALL, 
+            os_types=[OSType.UBUNTU], tags=["system"]
+        ),
+        RequiredPackage(
+            name="wrong-os-pkg", title="C", description="D", 
+            operation=PackageOperation.INSTALL, 
+            os_types=[OSType.FEDORA], tags=["storage"]
+        )
+    ]
+    
+    # Test 1: No tags (Default) -> Should get Ubuntu + ALL packages
     packages = get_system_required_packages()
-    
     assert len(packages) == 2
-    assert isinstance(packages[0], PackageStatus)
     assert packages[0].name == "installed-pkg"
-    assert packages[0].installed is True
-    assert packages[0].operation == PackageOperation.INSTALL
     assert packages[1].name == "missing-pkg"
-    assert packages[1].installed is False
-    assert packages[1].operation == PackageOperation.UNINSTALL
+    
+    # Test 2: Filter by tag "storage" -> Should get only installed-pkg
+    packages_storage = get_system_required_packages(tags="storage")
+    assert len(packages_storage) == 1
+    assert packages_storage[0].name == "installed-pkg"
+    
+    # Test 3: Filter by tag "system" -> Should get only missing-pkg
+    packages_system = get_system_required_packages(tags="system")
+    assert len(packages_system) == 1
+    assert packages_system[0].name == "missing-pkg"

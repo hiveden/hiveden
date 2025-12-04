@@ -26,12 +26,4 @@ class DebianPackageManager(PackageManager):
     def get_check_installed_command(self, package: str) -> str:
         return f"dpkg -l | grep -q '^ii  {package}'"
 
-    def get_required_packages(self) -> List[RequiredPackage]:
-        # packages to install 'docker.io', 'ca-certificates', 'lxc' 
-        return [
-            RequiredPackage(name='docker.io', title='Docker', description='Docker Engine', operation=PackageOperation.INSTALL),
-            RequiredPackage(name='ca-certificates', title='CA Certificates', description='CA Certificates', operation=PackageOperation.INSTALL),
-            RequiredPackage(name='lxc', title='LXC', description='LXC', operation=PackageOperation.INSTALL),
-        ]
-
 

@@ -38,8 +38,4 @@ class PackageManager(ABC):
         except subprocess.CalledProcessError:
             return False
 
-    @abstractmethod
-    def get_required_packages(self) -> List[RequiredPackage]:
-        pass
-
 

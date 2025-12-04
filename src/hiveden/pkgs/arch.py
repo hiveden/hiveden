@@ -26,7 +26,4 @@ class ArchPackageManager(PackageManager):
     def get_check_installed_command(self, package: str) -> str:
         return f"pacman -Q {package}"
 
-    def get_required_packages(self) -> List[RequiredPackage]:
-        return []
-
 
