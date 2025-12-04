@@ -129,12 +129,12 @@ class DockerManager:
             image = "Not Found (404)"
             image_id = "Not Found (404)"
         
-        names = [c.name] if c.name else []
+        name = c.name if c.name else "N/A"
         ip_address = self.extract_ip(c.attrs)
 
         return Container(
             Id=c.id,
-            Names=names,
+            Name=name,
             Image=image,
             ImageID=image_id,
             Command=(
@@ -169,14 +169,14 @@ class DockerManager:
                 image = "Not Found (404)"
                 image_id = "Not Found (404)"
 
-            names = [c.name] if c.name else []
+            name = c.name if c.name else "N/A"
 
             ip_address = self.extract_ip(c.attrs)
 
             response_data.append(
                 Container(
                     Id=c.id,
-                    Names=names,
+                    Name=name,
                     Image=image,
                     ImageID=image_id,
                     Command=(
@@ -218,10 +218,10 @@ class DockerManager:
         """Stop a list of containers."""
         for container in containers:
             if container.Status != "running":
-                print(f"Container '{container.Names[0]}' is already stopped.")
+                print(f"Container '{container.Name}' is already stopped.")
                 continue
             self.stop_container(container.Id)
-            print(f"Container '{container.Names[0]}' stopped.")
+            print(f"Container '{container.Name}' stopped.")
 
     def stop_container(self, container_id):
         """Stop a running Docker container."""
@@ -241,7 +241,7 @@ class DockerManager:
             if container.Status == "running":
                 self.stop_container(container.Id)
             self.remove_container(container.Id)
-            print(f"Container '{container.Names[0]}' deleted.")
+            print(f"Container '{container.Name}' deleted.")
 
     def describe_container(self, container_id=None, name=None):
         """Describe a Docker container by its ID or name."""
@@ -272,7 +272,7 @@ class DockerManager:
 
         return Container(
             Id=container.id or "N/A",
-            Names=[container.name or "N/A"],
+            Name=container.name or "N/A",
             Image=image,
             ImageID=image_id,
             Command=(

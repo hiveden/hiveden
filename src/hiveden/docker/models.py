@@ -46,7 +46,7 @@ class NetworkSettings(BaseModel):
 
 class Container(BaseModel):
     Id: str
-    Names: List[str]
+    Name: str
     Image: str
     ImageID: str
     Command: str
