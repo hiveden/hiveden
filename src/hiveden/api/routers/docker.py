@@ -1,3 +1,4 @@
+import traceback
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from typing import Optional
@@ -91,6 +92,8 @@ def create_new_container(container: ContainerCreate):
     except Exception as e:
         # TODO: Rollback DB transaction if Docker creation fails?
         # For now, we raise 500
+        print(e)
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

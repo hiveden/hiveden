@@ -161,3 +161,122 @@ class DatabaseManager:
         finally:
             conn.close()
 
+    def initialize_db(self):
+        """Initialize the database if tables do not exist."""
+        # Reusing the create scripts from reset_db. 
+        # Ideally these should be stored as constants or properties.
+        
+        create_script_sqlite = """
+        CREATE TABLE IF NOT EXISTS modules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            short_name TEXT UNIQUE NOT NULL,
+            enabled BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS containers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('docker', 'lxc')),
+            is_container BOOLEAN DEFAULT 0,
+            enabled BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS container_attributes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            container_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP,
+            FOREIGN KEY(container_id) REFERENCES containers(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            log TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
+        );
+        """
+        
+        create_script_postgres = """
+        CREATE TABLE IF NOT EXISTS modules (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL,
+            short_name TEXT UNIQUE NOT NULL,
+            enabled BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS configs (
+            id SERIAL PRIMARY KEY,
+            module_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS containers (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('docker', 'lxc')),
+            is_container BOOLEAN DEFAULT FALSE,
+            enabled BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS container_attributes (
+            id SERIAL PRIMARY KEY,
+            container_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            deleted_at TIMESTAMP,
+            FOREIGN KEY(container_id) REFERENCES containers(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS logs (
+            id SERIAL PRIMARY KEY,
+            module_id INTEGER NOT NULL,
+            log TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
+        );
+        """
+        
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            if self.db_type == 'sqlite':
+                # execulescript handles multiple statements
+                cursor.executescript(create_script_sqlite)
+            else:
+                cursor.execute(create_script_postgres)
+                
+            conn.commit()
+        finally:
+            conn.close()
+

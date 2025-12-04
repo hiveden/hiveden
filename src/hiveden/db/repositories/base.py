@@ -40,9 +40,13 @@ class BaseRepository:
             
             data = kwargs
             if model:
-                # If model is provided, convert to dict, excluding None values (to let DB defaults work)
-                # Assuming pydantic model
-                model_data = model.dict(exclude_unset=True) if hasattr(model, 'dict') else model.__dict__
+                if isinstance(model, dict):
+                    model_data = model
+                else:
+                    # If model is provided, convert to dict, excluding None values (to let DB defaults work)
+                    # Assuming pydantic model
+                    model_data = model.dict(exclude_unset=True) if hasattr(model, 'dict') else model.__dict__
+                
                 # Filter out None values for id/created_at if they are None
                 model_data = {k: v for k, v in model_data.items() if v is not None}
                 data.update(model_data)

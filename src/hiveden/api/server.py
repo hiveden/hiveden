@@ -2,12 +2,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from hiveden.api.routers import config, docker, info, lxc, shares, shell, pkgs, storage
+from hiveden.db.manager import DatabaseManager
+import os
 
 app = FastAPI(
     title="Hiveden API",
     description="An API for managing your personal server.",
     version="0.1.0",
 )
+
+# Initialize Database on Startup
+@app.on_event("startup")
+def startup_db():
+    # Load database URL from environment variable, with a default fallback to sqlite
+    db_url = os.getenv("HIVEDEN_DB_URL", "sqlite:///./hiveden.db")
+    db_manager = DatabaseManager(db_url)
+    db_manager.initialize_db()
 
 # Configure CORS
 app.add_middleware(

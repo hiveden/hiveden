@@ -95,7 +95,7 @@ class DockerManager:
                 environment=environment,
                 ports=port_bindings,
                 volumes=volumes,
-                restart_policy="always",
+                restart_policy={"Name": "always"},
                 **kwargs,
             )
             print(f"Container '{container_name}' recreated.")
@@ -106,7 +106,7 @@ class DockerManager:
                 environment=environment,
                 ports=port_bindings,
                 volumes=volumes,
-                restart_policy="always",
+                restart_policy={"Name": "always"},
                 **kwargs,
             )
             print(f"Container '{container_name}' created.")
