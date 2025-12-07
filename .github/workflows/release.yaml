@@ -209,14 +209,38 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Find artifacts
+        id: find_artifacts
+        run: |
+          SDIST_PATH=$(ls artifacts/python-package/*.tar.gz | head -n 1)
+          echo "SDIST_PATH=$SDIST_PATH" >> $GITHUB_ENV
+          echo "SDIST_NAME=$(basename $SDIST_PATH)" >> $GITHUB_ENV
+          
+          WHEEL_PATH=$(ls artifacts/python-package/*.whl | head -n 1)
+          echo "WHEEL_PATH=$WHEEL_PATH" >> $GITHUB_ENV
+          echo "WHEEL_NAME=$(basename $WHEEL_PATH)" >> $GITHUB_ENV
+          
+          ARCH_PATH=$(ls artifacts/arch-package/*.pkg.tar.zst | head -n 1)
+          echo "ARCH_PATH=$ARCH_PATH" >> $GITHUB_ENV
+          echo "ARCH_NAME=$(basename $ARCH_PATH)" >> $GITHUB_ENV
+          
+          DEB_PATH=$(ls artifacts/debian-package/*.deb | head -n 1)
+          echo "DEB_PATH=$DEB_PATH" >> $GITHUB_ENV
+          echo "DEB_NAME=$(basename $DEB_PATH)" >> $GITHUB_ENV
+          
+          RPM_PATH=$(ls artifacts/fedora-package/*.rpm | head -n 1)
+          echo "RPM_PATH=$RPM_PATH" >> $GITHUB_ENV
+          echo "RPM_NAME=$(basename $RPM_PATH)" >> $GITHUB_ENV
+
       - name: Upload Python sdist
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: artifacts/python-package/*.tar.gz
-          asset_name: hiveden-${{ github.ref_name }}.tar.gz
+          asset_path: ${{ env.SDIST_PATH }}
+          asset_name: ${{ env.SDIST_NAME }}
           asset_content_type: application/gzip
       - name: Upload Python wheel
         uses: actions/upload-release-asset@v1
@@ -224,8 +248,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: artifacts/python-package/*.whl
-          asset_name: hiveden-${{ github.ref_name }}-py3-none-any.whl
+          asset_path: ${{ env.WHEEL_PATH }}
+          asset_name: ${{ env.WHEEL_NAME }}
           asset_content_type: application/zip
       - name: Upload Arch package
         uses: actions/upload-release-asset@v1
@@ -233,8 +257,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: artifacts/arch-package/*.pkg.tar.zst
-          asset_name: hiveden-${{ github.ref_name }}.pkg.tar.zst
+          asset_path: ${{ env.ARCH_PATH }}
+          asset_name: ${{ env.ARCH_NAME }}
           asset_content_type: application/octet-stream
       - name: Upload Debian package
         uses: actions/upload-release-asset@v1
@@ -242,8 +266,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: artifacts/debian-package/*.deb
-          asset_name: hiveden-${{ github.ref_name }}.deb
+          asset_path: ${{ env.DEB_PATH }}
+          asset_name: ${{ env.DEB_NAME }}
           asset_content_type: application/vnd.debian.binary-package
       - name: Upload Fedora package
         uses: actions/upload-release-asset@v1
@@ -251,6 +275,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: artifacts/fedora-package/*.rpm
-          asset_name: hiveden-${{ github.ref_name }}.rpm
+          asset_path: ${{ env.RPM_PATH }}
+          asset_name: ${{ env.RPM_NAME }}
           asset_content_type: application/x-rpm
