@@ -87,6 +87,9 @@ jobs:
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           
+          # Change ownership of the checkout directory to the builder user
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
           # Run makepkg as builder
           sudo -u builder bash -c 'cd packaging/arch && makepkg -sf'
       - name: Upload artifact
