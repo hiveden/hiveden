@@ -112,7 +112,7 @@ def get_one_container(container_id: str):
 def stop_one_container(container_id: str):
     from hiveden.docker.containers import stop_container
     try:
-        return DataResponse(data=stop_container(container_id).attrs)
+        return DataResponse(data=stop_container(container_id))
     except Exception as e:
         logger.error(f"Error stopping container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

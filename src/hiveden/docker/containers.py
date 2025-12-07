@@ -225,15 +225,26 @@ class DockerManager:
 
     def stop_container(self, container_id):
         """Stop a running Docker container."""
-        container = self.get_container(container_id)
+        # Use the raw client to get the container object, which has the .stop() method
+        container = self.client.containers.get(container_id)
         container.stop()
-        return container
+        # Return the Pydantic model for the response
+        return self.get_container(container_id)
 
     def remove_container(self, container_id):
         """Remove a Docker container."""
-        container = self.get_container(container_id)
+        # Use the raw client to get the container object, which has the .remove() method
+        container = self.client.containers.get(container_id)
         container.remove()
-        return container
+        # We can't return the container object after removal, so maybe return None or info before removal?
+        # Or just return success. The original code returned the object.
+        # Let's get info before removal if we want to return it, but typically remove returns nothing or ID.
+        # For consistency with previous return type (Container model), we might want to fetch it first.
+        # However, get_container might fail if we fetch after removal.
+        # So let's fetch model first, then remove.
+        container_model = self.get_container(container_id)
+        container.remove()
+        return container_model
 
     def delete_containers(self, containers):
         """Delete a list of containers."""
