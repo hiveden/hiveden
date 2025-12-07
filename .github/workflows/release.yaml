@@ -166,7 +166,7 @@ jobs:
           
           # Create source tarball (hiveden-0.1.0 directory structure)
           mkdir -p /tmp/hiveden-$VERSION
-          cp -r ./* /tmp/hiveden-$VERSION/
+          cp -r . /tmp/hiveden-$VERSION/
           tar -czf ~/rpmbuild/SOURCES/v$VERSION.tar.gz -C /tmp hiveden-$VERSION
           
           # Copy other sources
