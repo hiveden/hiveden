@@ -80,8 +80,8 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build package
         run: |
-          # Install sudo and base-devel as root first
-          pacman -Syu --noconfirm base-devel sudo
+          # Install sudo, base-devel and python build dependencies as root first
+          pacman -Syu --noconfirm base-devel sudo python-build python-installer python-wheel
 
           # Create a non-root user and switch to it
           useradd -m builder
