@@ -157,6 +157,23 @@ jobs:
       - name: Build package
         run: |
           dnf install -y rpm-build python3-devel python3-pip python3-build
+          
+          # Setup rpmbuild directory structure
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          
+          # Determine version from spec file
+          VERSION=$(grep "^Version:" packaging/fedora/hiveden.spec | awk '{print $2}')
+          
+          # Create source tarball (hiveden-0.1.0 directory structure)
+          mkdir -p /tmp/hiveden-$VERSION
+          cp -r ./* /tmp/hiveden-$VERSION/
+          tar -czf ~/rpmbuild/SOURCES/v$VERSION.tar.gz -C /tmp hiveden-$VERSION
+          
+          # Copy other sources
+          cp packaging/hiveden.service ~/rpmbuild/SOURCES/
+          cp packaging/hiveden.default.yaml ~/rpmbuild/SOURCES/
+          
+          # Run rpmbuild
           cd packaging/fedora
           rpmbuild -ba hiveden.spec
       - name: Upload artifact
