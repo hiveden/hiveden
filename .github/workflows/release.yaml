@@ -91,7 +91,23 @@ jobs:
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
           # Run makepkg as builder
-          sudo -u builder bash -c 'cd packaging/arch && makepkg -sf'
+          sudo -u builder bash -c '
+            # Create source tarball from current checkout
+            cd "$GITHUB_WORKSPACE"
+            # Determine version from PKGBUILD
+            PKGVER=$(grep "^pkgver=" packaging/arch/PKGBUILD | cut -d= -f2)
+            
+            # Create the tarball structure makepkg expects (hiveden-0.1.0 directory inside)
+            mkdir -p /tmp/hiveden-$PKGVER
+            cp -r ./* /tmp/hiveden-$PKGVER/
+            tar -czf packaging/arch/hiveden-$PKGVER.tar.gz -C /tmp hiveden-$PKGVER
+            
+            # Update PKGBUILD to use local file
+            cd packaging/arch
+            sed -i "s|https://github.com/hiveden/hiveden/archive/v\$pkgver.tar.gz|file://\$PWD/hiveden-\$pkgver.tar.gz|g" PKGBUILD
+            
+            makepkg -sf
+          '
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
