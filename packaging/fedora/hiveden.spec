@@ -49,6 +49,7 @@ install -D -m644 %{SOURCE2} %{buildroot}%{_sysconfdir}/hiveden/config.yaml
 %license LICENSE
 %{_bindir}/hiveden
 %{python3_sitelib}/hiveden
+%{python3_sitelib}/hiveden-*.egg-info
 %{python3_sitelib}/hiveden-*.dist-info
 %{_unitdir}/hiveden.service
 %config(noreplace) %{_sysconfdir}/hiveden/config.yaml
