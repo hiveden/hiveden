@@ -22,6 +22,21 @@ def list_devices():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/devices/{device_name}", response_model=DataResponse)
+def get_device_details(device_name: str):
+    """
+    Get detailed information for a specific disk (including SMART data).
+    """
+    try:
+        details = manager.get_disk_details(device_name)
+        if not details:
+            raise HTTPException(status_code=404, detail="Device not found")
+        return DataResponse(data=details.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/strategies", response_model=DataResponse)
 def list_strategies():
     """

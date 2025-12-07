@@ -37,4 +37,12 @@ def get_all_required_packages() -> List[RequiredPackage]:
             os_types=[OSType.ALL],
             tags=["system", "network"]
         ),
+        RequiredPackage(
+            name="smartmontools",
+            title="smartmontools",
+            description="Tool for monitoring SMART data on disks",
+            operation=PackageOperation.INSTALL,
+            os_types=[OSType.ALL],
+            tags=["storage", "disk"]
+        ),
     ]

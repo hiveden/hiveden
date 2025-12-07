@@ -46,3 +46,25 @@ def get_hw_info():
         }
     }
     return info
+
+
+def get_smart_info(device_path: str) -> dict:
+    """
+    Retrieves S.M.A.R.T. data for a device using smartctl.
+    Returns a raw dictionary from the JSON output.
+    """
+    try:
+        # -a: All info, -j: JSON
+        cmd = ["smartctl", "-a", "-j", device_path]
+        # smartctl returns exit code with bitmask. 
+        # Even if it succeeds reading, it might have non-zero exit code if disk is failing.
+        # So we capture output and ignore return code mostly, unless it failed to run.
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if not result.stdout:
+            return {}
+
+        data = json.loads(result.stdout)
+        return data
+    except Exception:
+        return {}

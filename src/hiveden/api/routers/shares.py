@@ -107,3 +107,40 @@ def destroy_smb_share_endpoint(name: str):
         return SuccessResponse(message=f"Share {name} deleted.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+from hiveden.api.dtos import CreateBtrfsShareRequest, BtrfsShare
+
+@router.get("/btrfs/volumes", response_model=DataResponse)
+def list_btrfs_volumes_endpoint():
+    from hiveden.shares.btrfs import BtrfsManager
+    try:
+        manager = BtrfsManager()
+        return DataResponse(data=manager.list_volumes())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/btrfs/shares", response_model=DataResponse)
+def list_btrfs_shares_endpoint():
+    from hiveden.shares.btrfs import BtrfsManager
+    try:
+        manager = BtrfsManager()
+        return DataResponse(data=manager.list_shares())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/btrfs/shares", response_model=SuccessResponse)
+def create_btrfs_share_endpoint(share: CreateBtrfsShareRequest):
+    from hiveden.shares.btrfs import BtrfsManager
+    try:
+        manager = BtrfsManager()
+        manager.create_share(
+            parent_path=share.parent_path,
+            name=share.name,
+            mount_path=share.mount_path
+        )
+        return SuccessResponse(message=f"Btrfs share {share.name} created and mounted.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

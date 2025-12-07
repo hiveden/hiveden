@@ -19,6 +19,25 @@ class Disk(BaseModel):
     partitions: List[Partition] = []
     is_system: bool = False  # True if contains root filesystem or boot
     available: bool = False  # True if empty/reusable
+    raid_group: Optional[str] = None  # Name of the RAID array (e.g., md0)
+    raid_level: Optional[str] = None  # RAID level (e.g., raid1)
+
+class SmartData(BaseModel):
+    healthy: bool
+    health_status: str
+    temperature: Optional[int] = None
+    power_on_hours: Optional[int] = None
+    power_cycles: Optional[int] = None
+    model_name: Optional[str] = None
+    serial_number: Optional[str] = None
+    firmware_version: Optional[str] = None
+    rotation_rate: Optional[int] = None
+    attributes: List[dict] = []  # Raw attributes list
+
+class DiskDetail(Disk):
+    vendor: Optional[str] = None
+    bus: Optional[str] = None  # ATA, USB, NVMe, etc.
+    smart: Optional[SmartData] = None
 
 class StorageStrategy(BaseModel):
     name: str

@@ -22,6 +22,35 @@ def get_system_disks() -> List[Disk]:
         # lsblk nests partitions under 'children'
         raw_partitions = device.get("children", [])
         
+        raid_group = None
+        raid_level = None
+
+        def find_raid_info(children):
+            """Recursively search for RAID devices in children."""
+            nonlocal raid_group, raid_level
+            for child in children:
+                # Check if this child is a RAID device
+                child_type = child.get("type", "")
+                if child_type == "raid1" or child_type == "raid5" or child_type == "raid0" or child_type == "raid6" or child_type == "raid10":
+                    raid_group = child.get("name")
+                    raid_level = child_type
+                    return
+                
+                # Check for md device by name convention if type isn't explicit
+                if child.get("name", "").startswith("md"):
+                    raid_group = child.get("name")
+                    # Often lsblk type for md devices is 'raidX' but if not found, assume based on name?
+                    # Better to rely on type if available.
+                    if not raid_level:
+                         raid_level = child.get("fstype") or "raid" # fallback
+                    return
+
+                # Recurse
+                if "children" in child:
+                    find_raid_info(child["children"])
+
+        find_raid_info(raw_partitions)
+
         for p in raw_partitions:
             mountpoint = p.get("mountpoint")
             
@@ -63,7 +92,9 @@ def get_system_disks() -> List[Disk]:
             rotational=bool(device.get("rota")),
             partitions=partitions,
             is_system=is_system,
-            available=available
+            available=available,
+            raid_group=raid_group,
+            raid_level=raid_level
         )
         disks.append(disk)
 

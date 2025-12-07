@@ -1,12 +1,87 @@
-from typing import List
+from typing import List, Optional
 from hiveden.storage.devices import get_system_disks, get_unused_disks
 from hiveden.storage.strategies import generate_strategies
-from hiveden.storage.models import Disk, StorageStrategy
+from hiveden.storage.models import Disk, StorageStrategy, DiskDetail, SmartData
 from hiveden.jobs.manager import JobManager
+from hiveden.hwosinfo.hw import get_smart_info
 
 class StorageManager:
     def list_disks(self) -> List[Disk]:
         return get_system_disks()
+
+    def get_disk_details(self, device_name: str) -> Optional[DiskDetail]:
+        """
+        Retrieves detailed information for a specific disk, including SMART data.
+        """
+        all_disks = get_system_disks()
+        target_disk = next((d for d in all_disks if d.name == device_name), None)
+        
+        if not target_disk:
+            return None
+
+        # Get SMART info
+        # Usually smartctl needs full path, e.g. /dev/sda
+        # Our disk.path should have it.
+        smart_raw = get_smart_info(target_disk.path)
+        
+        smart_data = None
+        vendor = None
+        firmware = None
+        bus = None # smartctl often tells protocol
+
+        if smart_raw:
+            # Parse SmartData from raw JSON
+            # Structure depends on smartctl version and device type
+            # Basic parsing attempt:
+            smart_status = smart_raw.get("smart_status", {})
+            passed = smart_status.get("passed", False)
+            
+            # Temperature
+            temp = smart_raw.get("temperature", {}).get("current")
+            
+            # Power on hours
+            poh = smart_raw.get("power_on_time", {}).get("hours")
+            
+            # Power cycles
+            cycles = smart_raw.get("power_cycle_count")
+
+            # Model/Serial/Firmware often in 'model_name', 'serial_number', 'firmware_version' keys
+            # or inside 'device' key
+            device_info = smart_raw.get("device", {})
+            model = smart_raw.get("model_name") or device_info.get("model_name")
+            serial = smart_raw.get("serial_number") or device_info.get("serial_number")
+            firmware = smart_raw.get("firmware_version") or device_info.get("firmware_version")
+            
+            # Rotation rate
+            rotation = smart_raw.get("rotation_rate")
+            
+            # Attributes table
+            ata_smart = smart_raw.get("ata_smart_attributes", {})
+            attributes = ata_smart.get("table", [])
+
+            smart_data = SmartData(
+                healthy=passed,
+                health_status="Passed" if passed else "Failed",
+                temperature=temp,
+                power_on_hours=poh,
+                power_cycles=cycles,
+                model_name=model,
+                serial_number=serial,
+                firmware_version=firmware,
+                rotation_rate=rotation,
+                attributes=attributes
+            )
+            
+            # Vendor/Bus often in device info
+            # protocol: "ATA", "SCSI", "NVMe"
+            bus = device_info.get("protocol")
+
+        return DiskDetail(
+            **target_disk.dict(),
+            vendor=vendor, # Might be extracted from model or lsblk
+            bus=bus,
+            smart=smart_data
+        )
 
     def get_strategies(self) -> List[StorageStrategy]:
         unused = get_unused_disks()
