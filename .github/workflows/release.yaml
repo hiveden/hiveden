@@ -130,6 +130,9 @@ jobs:
           
           # Copy debian directory to the root of the source tree for debuild
           cp -r packaging/debian .
+          # Copy service and config files to root so dh_install can find them
+          cp packaging/hiveden.service .
+          cp packaging/hiveden.default.yaml .
           
           # Remove conflicting system package to allow pip to reinstall it
           apt-get remove -y python3-typing-extensions || true
