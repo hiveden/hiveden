@@ -1,6 +1,8 @@
 """API router for shell functionality."""
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi.logger import logger
+import traceback
 from typing import Optional
 
 from hiveden.api.dtos import DataResponse, SuccessResponse
@@ -63,8 +65,10 @@ def create_shell_session(request: ShellSessionCreate):
         session = shell_manager.create_session(request)
         return DataResponse(data=session.dict())
     except ValueError as e:
+        logger.error(f"Validation error creating shell session: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Error creating shell session: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -82,6 +86,7 @@ def list_shell_sessions(active_only: bool = Query(True, description="Only return
         sessions = shell_manager.list_sessions(active_only=active_only)
         return DataResponse(data=[s.dict() for s in sessions])
     except Exception as e:
+        logger.error(f"Error listing shell sessions: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -103,6 +108,7 @@ def get_shell_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting shell session {session_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -126,6 +132,7 @@ def close_shell_session(session_id: str):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error closing shell session {session_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -187,12 +194,8 @@ async def check_package(request: PackageCheckRequest):
             request.package_name,
             request.package_manager
         )
-        return DataResponse(data={
-            "package_name": request.package_name,
-            "installed": is_installed,
-            "message": message
-        })
     except Exception as e:
+        logger.error(f"Error checking package {request.package_name}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -281,8 +284,10 @@ def create_docker_shell(
         session = shell_manager.create_session(request)
         return DataResponse(data=session.dict())
     except ValueError as e:
+        logger.error(f"Validation error creating Docker shell: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Error creating Docker shell: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -321,6 +326,8 @@ def create_lxc_shell(
         session = shell_manager.create_session(request)
         return DataResponse(data=session.dict())
     except ValueError as e:
+        logger.error(f"Validation error creating LXC shell: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Error creating LXC shell: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

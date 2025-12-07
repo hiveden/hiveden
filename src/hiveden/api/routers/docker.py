@@ -1,6 +1,7 @@
 import traceback
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.logger import logger
 from typing import Optional
 
 from hiveden.api.dtos import DataResponse, SuccessResponse
@@ -26,6 +27,7 @@ def list_all_containers():
     try:
         return DataResponse(data=list_containers(all=True))
     except Exception as e:
+        logger.error(f"Error listing all containers: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -92,8 +94,7 @@ def create_new_container(container: ContainerCreate):
     except Exception as e:
         # TODO: Rollback DB transaction if Docker creation fails?
         # For now, we raise 500
-        print(e)
-        traceback.print_exc()
+        logger.error(f"Error creating new container: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -103,6 +104,7 @@ def get_one_container(container_id: str):
     try:
         return DataResponse(data=get_container(container_id))
     except Exception as e:
+        logger.error(f"Error getting container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -112,6 +114,7 @@ def stop_one_container(container_id: str):
     try:
         return DataResponse(data=stop_container(container_id).attrs)
     except Exception as e:
+        logger.error(f"Error stopping container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -122,6 +125,7 @@ def remove_one_container(container_id: str):
         remove_container(container_id)
         return SuccessResponse(message=f"Container {container_id} removed.")
     except Exception as e:
+        logger.error(f"Error removing container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/containers/{container_id}/logs")
@@ -149,6 +153,7 @@ def stream_container_logs(
                 # Format as Server-Sent Event
                 yield f"data: {log_line}\n\n"
         except Exception as e:
+            logger.error(f"Error streaming container {container_id} logs: {e}\n{traceback.format_exc()}")
             yield f"data: Error: {str(e)}\n\n"
     
     return StreamingResponse(
@@ -169,6 +174,7 @@ def list_all_networks():
         networks = [n.attrs for n in list_networks()]
         return DataResponse(data=networks)
     except Exception as e:
+        logger.error(f"Error listing all networks: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -179,8 +185,8 @@ def create_new_network(network: NetworkCreate):
         n = create_network(**network.dict())
         return DataResponse(data=n.attrs)
     except Exception as e:
+        logger.error(f"Error creating new network: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/networks/{network_id}", response_model=DataResponse)
 def get_one_network(network_id: str):
@@ -188,6 +194,7 @@ def get_one_network(network_id: str):
     try:
         return DataResponse(data=get_network(network_id).attrs)
     except Exception as e:
+        logger.error(f"Error getting network {network_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -198,4 +205,5 @@ def remove_one_network(network_id: str):
         remove_network(network_id)
         return SuccessResponse(message=f"Network {network_id} removed.")
     except Exception as e:
+        logger.error(f"Error removing network {network_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

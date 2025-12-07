@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.logger import logger
+import traceback
 
 from hiveden.api.dtos import DataResponse
 
@@ -10,6 +12,7 @@ def get_os_info_endpoint():
     try:
         return DataResponse(data=get_os_info())
     except Exception as e:
+        logger.error(f"Error getting OS info: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/hw", response_model=DataResponse)
@@ -18,6 +21,7 @@ def get_hw_info_endpoint():
     try:
         return DataResponse(data=get_hw_info())
     except Exception as e:
+        logger.error(f"Error getting hardware info: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -27,4 +31,5 @@ def get_version_endpoint():
     try:
         return DataResponse(data={"version": get_version()})
     except Exception as e:
+        logger.error(f"Error getting version info: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

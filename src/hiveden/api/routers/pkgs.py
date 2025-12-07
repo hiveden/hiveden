@@ -1,6 +1,8 @@
 """API router for packages."""
 
 from fastapi import APIRouter, HTTPException
+from fastapi.logger import logger
+import traceback
 from typing import List
 
 from hiveden.api.dtos import DataResponse
@@ -23,4 +25,5 @@ def list_required_packages(tags: str = None):
         packages = get_system_required_packages(tags=tags)
         return DataResponse(data=[pkg.dict() for pkg in packages])
     except Exception as e:
+        logger.error(f"Error listing required packages: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
