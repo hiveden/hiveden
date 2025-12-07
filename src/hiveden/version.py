@@ -2,7 +2,7 @@ import os
 import subprocess
 
 # This variable is intended to be overwritten during the build/release process
-__version__ = "test"
+__version__ = "0.0.0+test"
 
 def get_version() -> str:
     """
@@ -14,7 +14,7 @@ def get_version() -> str:
     """
     global __version__
     
-    if __version__ != "test":
+    if __version__ != "0.0.0+test":
         return __version__
 
     # Try to get git commit hash
@@ -24,8 +24,8 @@ def get_version() -> str:
             # git rev-parse --short HEAD
             cmd = ["git", "rev-parse", "--short", "HEAD"]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            return result.stdout.strip()
+            return "0.0.0+" + result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
-    return "test"
+    return "0.0.0+test"
