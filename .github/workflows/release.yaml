@@ -156,7 +156,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Build package
         run: |
-          dnf install -y rpm-build python3-devel python3-pip python3-build
+          dnf install -y rpm-build python3-devel python3-pip python3-build python3-setuptools
           
           # Setup rpmbuild directory structure
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
