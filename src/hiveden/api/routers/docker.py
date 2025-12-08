@@ -4,8 +4,16 @@ from fastapi.responses import StreamingResponse
 from fastapi.logger import logger
 from typing import Optional
 
-from hiveden.api.dtos import DataResponse, SuccessResponse
-from hiveden.docker.models import DBContainerCreate as ContainerCreate, NetworkCreate
+from hiveden.api.dtos import (
+    SuccessResponse, 
+    ContainerListResponse, 
+    ContainerResponse, 
+    ContainerCreateResponse, 
+    NetworkListResponse, 
+    NetworkResponse,
+    TemplateResponse
+)
+from hiveden.docker.models import ContainerCreate, NetworkCreate, TemplateCreate
 from hiveden.db.manager import DatabaseManager
 from hiveden.db.repositories.templates import ContainerRepository, ContainerAttributeRepository
 import os
@@ -21,17 +29,61 @@ def get_db_manager():
 router = APIRouter(prefix="/docker", tags=["Docker"])
 
 
-@router.get("/containers", response_model=DataResponse)
+@router.post("/containers/template", response_model=TemplateResponse)
+def create_template(template: TemplateCreate):
+    
+    db_manager = get_db_manager()
+    container_repo = ContainerRepository(db_manager)
+    attr_repo = ContainerAttributeRepository(db_manager)
+    
+    try:
+        # 1. Store in Database
+        # Create main container record
+        new_container_record = container_repo.create({
+            "name": template.name,
+            "type": template.type,
+            "is_container": False,
+            "enabled": template.enabled
+        })
+        
+        if not new_container_record:
+            raise Exception("Failed to create container record in database")
+            
+        # Store attributes (image, command, ports, etc.)
+        attributes = {
+            "image": template.image,
+            "command": template.command,
+            "env": json.dumps([e.dict() for e in template.env]) if template.env else None,
+            "ports": json.dumps([p.dict() for p in template.ports]) if template.ports else None,
+            "mounts": json.dumps([m.dict() for m in template.mounts]) if template.mounts else None,
+            "labels": json.dumps(template.labels) if template.labels else None
+        }
+        
+        for key, value in attributes.items():
+            if value:
+                attr_repo.create({
+                    "container_id": new_container_record.id,
+                    "name": key,
+                    "value": value
+                })
+
+        return TemplateResponse(data=template)
+    except Exception as e:
+        logger.error(f"Error creating template: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/containers", response_model=ContainerListResponse)
 def list_all_containers():
     from hiveden.docker.containers import list_containers
     try:
-        return DataResponse(data=list_containers(all=True))
+        return ContainerListResponse(data=list_containers(all=True))
     except Exception as e:
         logger.error(f"Error listing all containers: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/containers", response_model=DataResponse)
+@router.post("/containers", response_model=ContainerCreateResponse)
 def create_new_container(container: ContainerCreate):
     from hiveden.docker.containers import create_container
     
@@ -71,26 +123,24 @@ def create_new_container(container: ContainerCreate):
                     "value": value
                 })
 
-        # 2. Create and Start in Docker (if it's meant to be a running container)
-        docker_response = None
-        if container.is_container:
-            # Convert DB model back to Docker args format
-            # We use the original request object 'container' as it has the right structure
-            c = create_container(
-                name=container.name,
-                image=container.image,
-                command=container.command,
-                env=container.env,
-                ports=container.ports,
-                mounts=container.mounts,
-                labels=container.labels
-            )
-            docker_response = c.attrs
-
-        return DataResponse(data={
-            "db_record": new_container_record.dict(),
-            "docker_attrs": docker_response
-        })
+        # 2. Create and Start in Docker (always, as /template handles DB-only)
+        # Convert DB model back to Docker args format
+        # We use the original request object 'container' as it has the right structure
+        c = create_container(
+            name=container.name,
+            image=container.image,
+            command=container.command,
+            env=container.env,
+            ports=container.ports,
+            mounts=container.mounts,
+            labels=container.labels
+        )
+        
+        # We need to return the Pydantic model, not the raw docker attributes
+        from hiveden.docker.containers import get_container
+        docker_response = get_container(c.id)
+        
+        return ContainerCreateResponse(data=docker_response)
     except Exception as e:
         # TODO: Rollback DB transaction if Docker creation fails?
         # For now, we raise 500
@@ -98,31 +148,31 @@ def create_new_container(container: ContainerCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/containers/{container_id}", response_model=DataResponse)
+@router.get("/containers/{container_id}", response_model=ContainerResponse)
 def get_one_container(container_id: str):
     from hiveden.docker.containers import get_container
     try:
-        return DataResponse(data=get_container(container_id))
+        return ContainerResponse(data=get_container(container_id))
     except Exception as e:
         logger.error(f"Error getting container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/containers/{container_id}/start", response_model=DataResponse)
+@router.post("/containers/{container_id}/start", response_model=ContainerResponse)
 def start_one_container(container_id: str):
     from hiveden.docker.containers import start_container
     try:
-        return DataResponse(data=start_container(container_id).dict())
+        return ContainerResponse(data=start_container(container_id).dict())
     except Exception as e:
         logger.error(f"Error starting container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/containers/{container_id}/stop", response_model=DataResponse)
+@router.post("/containers/{container_id}/stop", response_model=ContainerResponse)
 def stop_one_container(container_id: str):
     from hiveden.docker.containers import stop_container
     try:
-        return DataResponse(data=stop_container(container_id))
+        return ContainerResponse(data=stop_container(container_id))
     except Exception as e:
         logger.error(f"Error stopping container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -144,13 +194,11 @@ def stream_container_logs(
     follow: Optional[bool] = True,
     tail: Optional[int] = 100
 ):
-    """Stream container logs in real-time using Server-Sent Events.
-    
+    """Stream container logs in real-time using Server-Sent Events.    
     Args:
         container_id: Container ID or name
         follow: If True, stream logs in real-time (default: True)
-        tail: Number of lines to show from the end (default: 100)
-    
+        tail: Number of lines to show from the end (default: 100)    
     Returns:
         StreamingResponse with text/event-stream content type
     """
@@ -177,32 +225,32 @@ def stream_container_logs(
     )
 
 
-@router.get("/networks", response_model=DataResponse)
+@router.get("/networks", response_model=NetworkListResponse)
 def list_all_networks():
     from hiveden.docker.networks import list_networks
     try:
         networks = [n.attrs for n in list_networks()]
-        return DataResponse(data=networks)
+        return NetworkListResponse(data=networks)
     except Exception as e:
         logger.error(f"Error listing all networks: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/networks", response_model=DataResponse)
+@router.post("/networks", response_model=NetworkResponse)
 def create_new_network(network: NetworkCreate):
     from hiveden.docker.networks import create_network
     try:
         n = create_network(**network.dict())
-        return DataResponse(data=n.attrs)
+        return NetworkResponse(data=n.attrs)
     except Exception as e:
         logger.error(f"Error creating new network: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/networks/{network_id}", response_model=DataResponse)
+@router.get("/networks/{network_id}", response_model=NetworkResponse)
 def get_one_network(network_id: str):
     from hiveden.docker.networks import get_network
     try:
-        return DataResponse(data=get_network(network_id).attrs)
+        return NetworkResponse(data=get_network(network_id).attrs)
     except Exception as e:
         logger.error(f"Error getting network {network_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

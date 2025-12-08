@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from hiveden.docker.models import Container as DockerContainer, Network as DockerNetwork
+from hiveden.docker.models import Container as DockerContainer, Network as DockerNetwork, DockerContainer as ContainerConfig
 from hiveden.pkgs.models import PackageStatus
 from hiveden.storage.models import Disk, DiskDetail, StorageStrategy
 from hiveden.shares.models import (
@@ -70,6 +70,30 @@ class VersionInfo(BaseModel):
 class JobInfo(BaseModel):
     job_id: str
     message: Optional[str] = None
+
+
+class ContainerListResponse(BaseResponse):
+    data: List[DockerContainer]
+
+
+class ContainerResponse(BaseResponse):
+    data: DockerContainer
+
+
+class ContainerCreateResponse(BaseResponse):
+    data: DockerContainer
+
+
+class TemplateResponse(BaseResponse):
+    data: ContainerConfig
+
+
+class NetworkListResponse(BaseResponse):
+    data: List[DockerNetwork]
+
+
+class NetworkResponse(BaseResponse):
+    data: DockerNetwork
 
 
 class DataResponse(BaseResponse):
