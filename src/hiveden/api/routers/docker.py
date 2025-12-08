@@ -5,7 +5,9 @@ from fastapi.logger import logger
 from typing import Optional
 
 from hiveden.api.dtos import (
-    SuccessResponse, 
+    DataResponse, 
+    SuccessResponse,
+    ErrorResponse,
     ContainerListResponse, 
     ContainerResponse, 
     ContainerCreateResponse, 
@@ -178,12 +180,15 @@ def stop_one_container(container_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/containers/{container_id}", response_model=SuccessResponse)
+@router.delete("/containers/{container_id}", response_model=SuccessResponse, responses={400: {"model": ErrorResponse, "description": "Bad Request: Container is running or other client-side error."}})
 def remove_one_container(container_id: str):
     from hiveden.docker.containers import remove_container
     try:
         remove_container(container_id)
         return SuccessResponse(message=f"Container {container_id} removed.")
+    except ValueError as e:
+        logger.warning(f"Attempt to remove running container {container_id}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error removing container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
