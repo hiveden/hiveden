@@ -3,8 +3,8 @@ Description=Hiveden Server
 After=network.target
 
 [Service]
-User=hiveden
-Group=hiveden
+User=root
+Group=root
 WorkingDirectory=/opt/hiveden
 ExecStart=/usr/bin/hiveden server --host 0.0.0.0 --db-url sqlite:///opt/hiveden/db/hiveden.db
 Restart=always
