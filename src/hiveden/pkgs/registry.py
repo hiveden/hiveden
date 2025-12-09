@@ -1,5 +1,7 @@
 from typing import List
-from hiveden.pkgs.models import RequiredPackage, PackageOperation, OSType
+
+from hiveden.pkgs.models import OSType, PackageOperation, RequiredPackage
+
 
 def get_all_required_packages() -> List[RequiredPackage]:
     return [
@@ -44,5 +46,21 @@ def get_all_required_packages() -> List[RequiredPackage]:
             operation=PackageOperation.INSTALL,
             os_types=[OSType.ALL],
             tags=["storage", "disk"]
+        ),
+        RequiredPackage(
+            name="lxc",
+            title="LXC Containers",
+            description="Support for LXC",
+            os_types=[OSType.ALL],
+            operation=PackageOperation.INSTALL,
+            tags=["lxc", "containers"]
+        ),
+        RequiredPackage(
+            name="docker.io",
+            title="Docker Containers",
+            description="Support for Docker",
+            os_types=[OSType.DEBIAN],
+            operation=PackageOperation.INSTALL,
+            tags=["docker", "containers"]
         ),
     ]
