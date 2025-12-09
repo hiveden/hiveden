@@ -1,2 +1,2 @@
-hiveden.service /lib/systemd/system/
+hiveden.service /usr/lib/systemd/system/
 config.yaml /etc/hiveden/
