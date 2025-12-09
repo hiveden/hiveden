@@ -16,6 +16,10 @@ def main(ctx):
     """Hiveden CLI"""
     ctx.ensure_object(dict)
 
+    # Initialize the database on startup
+    from hiveden.db.session import get_db_manager
+    get_db_manager().initialize_db()
+
 main.add_command(docker)
 main.add_command(lxc)
 main.add_command(pkgs)
