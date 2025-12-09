@@ -1,6 +1,8 @@
 import sqlite3
-import psycopg2
 from urllib.parse import urlparse
+
+import psycopg2
+
 
 class DatabaseManager:
     def __init__(self, db_url: str):
@@ -12,7 +14,7 @@ class DatabaseManager:
         """Get a raw database connection."""
         if self.db_type == 'sqlite':
             # Remove 'sqlite:///' or 'sqlite://' prefix
-            path = self.db_url.replace('sqlite:///', '').replace('sqlite://', '')
+            path = self.db_url.replace('sqlite://', '')
             conn = sqlite3.connect(path)
             conn.row_factory = sqlite3.Row  # Access columns by name
             return conn
@@ -36,7 +38,7 @@ class DatabaseManager:
         # Define schema
         # Note: SQLite and Postgres have slightly different syntax for some things (e.g. AUTOINCREMENT vs SERIAL)
         # We'll try to use compatible SQL or branch based on type.
-        
+
         drop_script = """
         DROP TABLE IF EXISTS logs;
         DROP TABLE IF EXISTS container_attributes;
@@ -44,7 +46,7 @@ class DatabaseManager:
         DROP TABLE IF EXISTS configs;
         DROP TABLE IF EXISTS modules;
         """
-        
+
         create_script_sqlite = """
         CREATE TABLE modules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +55,7 @@ class DatabaseManager:
             enabled BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE TABLE configs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module_id INTEGER NOT NULL,
@@ -94,7 +96,7 @@ class DatabaseManager:
             FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
         );
         """
-        
+
         create_script_postgres = """
         CREATE TABLE modules (
             id SERIAL PRIMARY KEY,
@@ -103,7 +105,7 @@ class DatabaseManager:
             enabled BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE TABLE configs (
             id SERIAL PRIMARY KEY,
             module_id INTEGER NOT NULL,
@@ -144,11 +146,11 @@ class DatabaseManager:
             FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
         );
         """
-        
+
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
-            
+
             # Drop tables
             if self.db_type == 'sqlite':
                 cursor.executescript(drop_script)
@@ -156,16 +158,16 @@ class DatabaseManager:
             else:
                 cursor.execute(drop_script)
                 cursor.execute(create_script_postgres)
-                
+
             conn.commit()
         finally:
             conn.close()
 
     def initialize_db(self):
         """Initialize the database if tables do not exist."""
-        # Reusing the create scripts from reset_db. 
+        # Reusing the create scripts from reset_db.
         # Ideally these should be stored as constants or properties.
-        
+
         create_script_sqlite = """
         CREATE TABLE IF NOT EXISTS modules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,7 +176,7 @@ class DatabaseManager:
             enabled BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE TABLE IF NOT EXISTS configs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module_id INTEGER NOT NULL,
@@ -215,7 +217,7 @@ class DatabaseManager:
             FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
         );
         """
-        
+
         create_script_postgres = """
         CREATE TABLE IF NOT EXISTS modules (
             id SERIAL PRIMARY KEY,
@@ -224,7 +226,7 @@ class DatabaseManager:
             enabled BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        
+
         CREATE TABLE IF NOT EXISTS configs (
             id SERIAL PRIMARY KEY,
             module_id INTEGER NOT NULL,
@@ -265,18 +267,17 @@ class DatabaseManager:
             FOREIGN KEY(module_id) REFERENCES modules(id) ON DELETE CASCADE
         );
         """
-        
+
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
-            
+
             if self.db_type == 'sqlite':
                 # execulescript handles multiple statements
                 cursor.executescript(create_script_sqlite)
             else:
                 cursor.execute(create_script_postgres)
-                
+
             conn.commit()
         finally:
             conn.close()
-
