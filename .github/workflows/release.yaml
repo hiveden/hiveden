@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - "v*.*.*"
+      - "*.*.*"
 
 permissions:
   contents: write
@@ -94,7 +94,7 @@ jobs:
           # Create a non-root user and switch to it
           useradd -m builder
           echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          
+
           # Change ownership of the checkout directory to the builder user
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
@@ -102,7 +102,7 @@ jobs:
           sudo -u builder bash -c '
             # Create source tarball from current checkout
             cd "$GITHUB_WORKSPACE"
-            
+
             # Determine version
             if [[ "${{ github.ref_type }}" == "tag" ]]; then
               VERSION="${{ github.ref_name }}"
@@ -112,22 +112,22 @@ jobs:
               # Snapshot version
               VERSION="0.0.0.dev$(date +'%Y%m%d%H%M%S')"
             fi
-            
+
             # Inject version into PKGBUILD
             sed -i "s|^pkgver=.*|pkgver=$VERSION|" packaging/arch/PKGBUILD
-            
+
             # Inject version into version.py
             sed -i "s|^__version__ = .*|__version__ = \"$VERSION\"|" src/hiveden/version.py
-            
+
             # Create the tarball structure makepkg expects (hiveden-VERSION directory inside)
             mkdir -p /tmp/hiveden-$VERSION
             cp -r ./* /tmp/hiveden-$VERSION/
             tar -czf packaging/arch/hiveden-$VERSION.tar.gz -C /tmp hiveden-$VERSION
-            
+
             # Update PKGBUILD to use local file
             cd packaging/arch
             sed -i "s|https://github.com/hiveden/hiveden/archive/v\$pkgver.tar.gz|file://\$PWD/hiveden-\$pkgver.tar.gz|g" PKGBUILD
-            
+
             makepkg -sf
           '
       - name: Upload artifact
@@ -146,10 +146,10 @@ jobs:
           apt-get update
           # Try installing liblxc-dev, falling back to lxc-dev if not found
           apt-get install -y build-essential debhelper devscripts dh-python python3-venv python3-pip lxc-dev
-          
+
           # Explicitly install python3-all and python3-setuptools as they are build-deps and might conflict.
           apt-get install -y python3-all python3-setuptools python3-wheel python3-build
-          
+
           # Inject version into version.py
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
@@ -159,32 +159,32 @@ jobs:
             # Snapshot version
             VERSION="0.0.0.dev$(date +'%Y%m%d%H%M%S')"
           fi
-          
+
           # Update changelog
           sed -i "s|hiveden (0.0.0-1)|hiveden ($VERSION-1)|" packaging/debian/changelog
-          
+
           # Update python version
           sed -i "s|__version__ = \"0.0.0+test\"|__version__ = \"$VERSION\"|" src/hiveden/version.py
-          
+
           # Copy debian directory to the root of the source tree for debuild
           cp -r packaging/debian .
           # Copy service and config files to root so dh_install can find them
           cp packaging/hiveden.service .
           cp packaging/hiveden.default.yaml .
-          
+
           # Remove conflicting system package to allow pip to reinstall it
           apt-get remove -y python3-typing-extensions || true
-          
+
           # Explicitly install python3-all and python3-setuptools as they are build-deps and might conflict.
           apt-get install -y python3-all python3-setuptools python3-wheel python3-build
- 
+
           # List directory contents recursively
           ls -laR .
 
           # Run debuild from the root of the source tree
           # Skip tests during packaging build
           DEB_BUILD_OPTIONS=nocheck debuild -b -us -uc
-          
+
           # Move artifacts from parent directory to current directory
           mv ../*.deb .
           mv ../*.buildinfo . || true
@@ -203,10 +203,10 @@ jobs:
       - name: Build package
         run: |
           dnf install -y rpm-build python3-devel python3-pip python3-build python3-setuptools systemd-rpm-macros
-          
+
           # Setup rpmbuild directory structure
           mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          
+
           # Determine version
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
@@ -216,26 +216,26 @@ jobs:
             # Snapshot version
             VERSION="0.0.0.dev$(date +'%Y%m%d%H%M%S')"
           fi
-          
+
           # Inject version into spec file
           sed -i "s|^Version:.*|Version:        $VERSION|" packaging/fedora/hiveden.spec
-          
+
           # Inject version into version.py
           sed -i "s|^__version__ = .*|__version__ = \"$VERSION\"|" src/hiveden/version.py
-          
+
           # Create source tarball (hiveden-VERSION directory structure)
           mkdir -p /tmp/hiveden-$VERSION
           cp -r . /tmp/hiveden-$VERSION/
           tar -czf ~/rpmbuild/SOURCES/v$VERSION.tar.gz -C /tmp hiveden-$VERSION
-          
+
           # Copy other sources
           cp packaging/hiveden.service ~/rpmbuild/SOURCES/
           cp packaging/hiveden.default.yaml ~/rpmbuild/SOURCES/
-          
+
           # Run rpmbuild
           cd packaging/fedora
           rpmbuild -ba hiveden.spec
-          
+
           # Move artifacts to workspace root
           cp ~/rpmbuild/RPMS/noarch/*.rpm $GITHUB_WORKSPACE/
       - name: Upload artifact
@@ -244,9 +244,57 @@ jobs:
           name: fedora-package
           path: ./*.rpm
 
+  docker-image-build-push:
+    runs-on: ubuntu-latest
+    needs: [create-release]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Determine Docker tag
+        id: docker_tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+            # Strip v prefix if needed
+            VERSION="${VERSION#v}"
+            echo "TAG=$VERSION" >> $GITHUB_OUTPUT
+            echo "LATEST=true" >> $GITHUB_OUTPUT
+          else
+            # Snapshot version
+            VERSION="dev-$(date +'%Y%m%d%H%M%S')"
+            echo "TAG=$VERSION" >> $GITHUB_OUTPUT
+            echo "LATEST=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/hiveden:${{ steps.docker_tag.outputs.TAG }}
+            ${{ steps.docker_tag.outputs.LATEST == 'true' && format('{0}/hiveden:latest', secrets.DOCKERHUB_USERNAME) || '' }}
+          platforms: linux/amd64,linux/arm64
+
   upload-assets:
     runs-on: ubuntu-latest
-    needs: [create-release, build-python-package, build-arch-package, build-debian-package, build-fedora-package]
+    needs: [create-release, build-python-package, build-arch-package, build-debian-package, build-fedora-package, docker-image-build-push]
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -259,19 +307,19 @@ jobs:
           SDIST_PATH=$(ls artifacts/python-package/*.tar.gz | head -n 1)
           echo "SDIST_PATH=$SDIST_PATH" >> $GITHUB_ENV
           echo "SDIST_NAME=$(basename $SDIST_PATH)" >> $GITHUB_ENV
-          
+
           WHEEL_PATH=$(ls artifacts/python-package/*.whl | head -n 1)
           echo "WHEEL_PATH=$WHEEL_PATH" >> $GITHUB_ENV
           echo "WHEEL_NAME=$(basename $WHEEL_PATH)" >> $GITHUB_ENV
-          
+
           ARCH_PATH=$(ls artifacts/arch-package/*.pkg.tar.zst | head -n 1)
           echo "ARCH_PATH=$ARCH_PATH" >> $GITHUB_ENV
           echo "ARCH_NAME=$(basename $ARCH_PATH)" >> $GITHUB_ENV
-          
+
           DEB_PATH=$(ls artifacts/debian-package/*.deb | head -n 1)
           echo "DEB_PATH=$DEB_PATH" >> $GITHUB_ENV
           echo "DEB_NAME=$(basename $DEB_PATH)" >> $GITHUB_ENV
-          
+
           RPM_PATH=$(ls artifacts/fedora-package/*.rpm | head -n 1)
           echo "RPM_PATH=$RPM_PATH" >> $GITHUB_ENV
           echo "RPM_NAME=$(basename $RPM_PATH)" >> $GITHUB_ENV
