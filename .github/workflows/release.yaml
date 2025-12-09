@@ -153,8 +153,10 @@ jobs:
           apt-get install -y python3-all python3-setuptools python3-wheel python3-build
 
           # Inject version into version.py
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION="${{ github.ref_name }}"
+            # Strip v prefix
+            VERSION="${VERSION#v}"
           else
             # Snapshot version
             VERSION="0.0.0.dev$(date +'%Y%m%d%H%M%S')"
