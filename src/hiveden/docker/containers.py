@@ -137,11 +137,7 @@ class DockerManager:
             Name=name,
             Image=image,
             ImageID=image_id,
-            Command=(
-                " ".join(c.attrs.get("Config", {}).get("Cmd", []))
-                if c.attrs.get("Config", {}).get("Cmd")
-                else ""
-            ),
+            Command=c.attrs.get("Config", {}).get("Cmd", []) or [],
             Created=c.attrs.get("Created", 0),
             State=c.attrs.get("State", {}).get("Status", "N/A"),
             Status=c.status,
@@ -179,11 +175,7 @@ class DockerManager:
                     Name=name,
                     Image=image,
                     ImageID=image_id,
-                    Command=(
-                        " ".join(c.attrs.get("Config", {}).get("Cmd", []))
-                        if c.attrs.get("Config", {}).get("Cmd")
-                        else ""
-                    ),
+                    Command=c.attrs.get("Config", {}).get("Cmd", []) or [],
                     Created=c.attrs.get("Created", 0),
                     State=c.attrs.get("State", {}).get("Status", "N/A"),
                     Status=c.status,
@@ -290,11 +282,7 @@ class DockerManager:
             Name=container.name or "N/A",
             Image=image,
             ImageID=image_id,
-            Command=(
-                " ".join(container.attrs.get("Config", {}).get("Cmd", []))
-                if container.attrs.get("Config", {}).get("Cmd")
-                else ""
-            ),
+            Command=container.attrs.get("Config", {}).get("Cmd", []) or [],
             Created=container.attrs.get("Created", 0),
             State=container.attrs.get("State", {}).get("Status", "N/A"),
             Status=container.status,

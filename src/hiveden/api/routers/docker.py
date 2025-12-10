@@ -54,7 +54,7 @@ def create_template(template: TemplateCreate):
         # Store attributes (image, command, ports, etc.)
         attributes = {
             "image": template.image,
-            "command": template.command,
+            "command": json.dumps(template.command) if template.command else None,
             "env": json.dumps([e.dict() for e in template.env]) if template.env else None,
             "ports": json.dumps([p.dict() for p in template.ports]) if template.ports else None,
             "mounts": json.dumps([m.dict() for m in template.mounts]) if template.mounts else None,
@@ -110,7 +110,7 @@ def create_new_container(container: ContainerCreate):
         # We serialize complex objects to JSON strings for storage
         attributes = {
             "image": container.image,
-            "command": container.command,
+            "command": json.dumps(container.command) if container.command else None,
             "env": json.dumps([e.dict() for e in container.env]) if container.env else None,
             "ports": json.dumps([p.dict() for p in container.ports]) if container.ports else None,
             "mounts": json.dumps([m.dict() for m in container.mounts]) if container.mounts else None,

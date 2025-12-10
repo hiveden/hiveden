@@ -23,7 +23,7 @@ class Mount(BaseModel):
 class DockerContainer(BaseModel):
     name: str
     image: str
-    command: Optional[str] = None
+    command: Optional[List[str]] = None
     env: Optional[List[EnvVar]] = None
     ports: Optional[List[Port]] = None
     mounts: Optional[List[Mount]] = None
@@ -54,7 +54,7 @@ class Container(BaseModel):
     Name: str
     Image: str
     ImageID: str
-    Command: str
+    Command: List[str]
     Created: datetime
     State: str
     Status: str
