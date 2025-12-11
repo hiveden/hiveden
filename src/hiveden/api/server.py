@@ -1,9 +1,20 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from hiveden.api.routers import config, docker, info, lxc, shares, shell, pkgs, storage, explorer
+from hiveden.api.routers import (
+    config,
+    docker,
+    explorer,
+    info,
+    lxc,
+    pkgs,
+    shares,
+    shell,
+    storage,
+)
 from hiveden.db.manager import DatabaseManager
-import os
 
 app = FastAPI(
     title="Hiveden API",
@@ -22,7 +33,7 @@ def startup_db():
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend origin
+    allow_origins=["*"],  # Frontend origin
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
