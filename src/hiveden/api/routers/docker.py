@@ -220,8 +220,12 @@ def update_container_configuration(container_id: str, container: ContainerCreate
         
         # Get old config to know the name
         from hiveden.docker.containers import get_container_config
-        old_config = get_container_config(container_id)
-        old_name = old_config["name"]
+        try:
+            old_config = get_container_config(container_id)
+            old_name = old_config["name"]
+        except Exception:
+            logger.warning(f"Could not retrieve config for container {container_id}, assuming it is gone.")
+            old_name = container.name
         
         # Find DB record
         record = container_repo.find_by_name(old_name)

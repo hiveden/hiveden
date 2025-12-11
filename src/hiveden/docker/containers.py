@@ -350,27 +350,23 @@ class DockerManager:
         """Update a container by removing the old one and creating a new one."""
         try:
             old_container = self.client.containers.get(container_id)
-            old_name = old_container.name
+            # Always remove the old container to avoid conflicts and ensure clean state
+            # If name is same, create_container would handle it, but if name changed, we need this.
+            old_container.remove(force=True)
             
-            # If name is changing, we must remove the old container first to avoid conflict if not handled by create
-            # Or if we want to guarantee the old one is gone before starting new one.
-            # create_container handles same-name replacement.
-            if config.name != old_name:
-                print(f"Renaming container from {old_name} to {config.name}. Removing old container...")
-                old_container.remove(force=True)
-            
-            # Call create_container
-            return self.create_container(
-                name=config.name,
-                image=config.image,
-                command=config.command,
-                env=config.env,
-                ports=config.ports,
-                mounts=config.mounts,
-                labels=config.labels
-            )
         except errors.NotFound:
-            raise ValueError(f"Container {container_id} not found to update")
+            print(f"Container {container_id} not found during update. Proceeding to create.")
+            
+        # Call create_container
+        return self.create_container(
+            name=config.name,
+            image=config.image,
+            command=config.command,
+            env=config.env,
+            ports=config.ports,
+            mounts=config.mounts,
+            labels=config.labels
+        )
 
 
 # Wrappers for backward compatibility
