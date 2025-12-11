@@ -9,12 +9,19 @@ from hiveden.explorer.manager import ExplorerManager
 from hiveden.explorer.operations import ExplorerService
 from hiveden.explorer.models import OperationStatus, ExplorerOperation, FileType, FileEntry
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def perform_search(op_id: str, path: str, pattern: str, use_regex: bool, case_sensitive: bool, type_filter: str, show_hidden: bool):
     manager = ExplorerManager()
     service = ExplorerService()
     
+    logger.info(f"Starting search operation {op_id} in {path} with pattern {pattern}")
+
     op = manager.get_operation(op_id)
     if not op:
+        logger.error(f"Operation {op_id} not found")
         return
 
     op.status = OperationStatus.IN_PROGRESS
@@ -27,9 +34,10 @@ def perform_search(op_id: str, path: str, pattern: str, use_regex: bool, case_se
     try:
         flags = 0 if case_sensitive else re.IGNORECASE
         if not use_regex:
-            # Convert glob to regex
-            pattern = re.escape(pattern).replace(r'*', '.*').replace(r'?', '.')
+            # Convert glob to regex: escape everything, then revert * and ? to regex equivalents
+            pattern = re.escape(pattern).replace(r'\*', '.*').replace(r'\?', '.')
         
+        logger.info(f"Compiled regex: {pattern}")
         regex = re.compile(pattern, flags)
         
         for root, dirs, files in os.walk(path):
@@ -46,8 +54,8 @@ def perform_search(op_id: str, path: str, pattern: str, use_regex: bool, case_se
                         try:
                             full_path = os.path.join(root, d)
                             matches.append(service.get_file_entry(full_path).dict())
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Error getting file entry for {d}: {e}")
             
             # Scan files
             if type_filter in ['all', 'file']:
@@ -57,8 +65,8 @@ def perform_search(op_id: str, path: str, pattern: str, use_regex: bool, case_se
                         try:
                             full_path = os.path.join(root, f)
                             matches.append(service.get_file_entry(full_path).dict())
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Error getting file entry for {f}: {e}")
             
             # Update progress periodically (every 100 items or so)
             if total_scanned % 100 == 0:
@@ -76,8 +84,10 @@ def perform_search(op_id: str, path: str, pattern: str, use_regex: bool, case_se
         op.processed_items = total_scanned
         op.completed_at = datetime.utcnow()
         manager.update_operation(op)
+        logger.info(f"Search operation {op_id} completed. Matches: {len(matches)}")
 
     except Exception as e:
+        logger.error(f"Search operation {op_id} failed: {e}", exc_info=True)
         op.status = OperationStatus.FAILED
         op.error_message = str(e)
         op.completed_at = datetime.utcnow()

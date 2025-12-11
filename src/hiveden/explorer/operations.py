@@ -1,22 +1,16 @@
-import os
-import shutil
-import pwd
 import grp
-import stat
-import mimetypes
-import re
-import subprocess
+import json
 import logging
+import mimetypes
+import os
+import pwd
+import shutil
+import stat
+import subprocess
 from datetime import datetime
-from typing import List, Optional, Tuple, Any
+from typing import Any, List, Optional, Tuple
 
-from hiveden.explorer.models import (
-    FileEntry,
-    FileType,
-    SortBy,
-    SortOrder,
-    USBDevice
-)
+from hiveden.explorer.models import FileEntry, FileType, SortBy, SortOrder, USBDevice
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +24,12 @@ class ExplorerService:
         """
         if not path:
             return self.root_directory
-        
+
         # Handle absolute paths that might not be rooted at root_directory in the FS view
         # But for this requirement, root_directory is likely "/" so all absolute paths are valid.
         # If root_directory was restricted (e.g. /home/user), we'd need to sandbox.
         # Assuming full system access for now based on context ("server management").
-        
+
         return os.path.abspath(path)
 
     def _human_readable_size(self, size_bytes: int) -> str:
@@ -65,7 +59,7 @@ class ExplorerService:
             owner = pwd.getpwuid(st.st_uid).pw_name
         except KeyError:
             owner = str(st.st_uid)
-        
+
         try:
             group = grp.getgrgid(st.st_gid).gr_name
         except KeyError:
@@ -109,12 +103,12 @@ class ExplorerService:
 
         entries = []
         total_size = 0
-        
+
         with os.scandir(abs_path) as it:
             for entry in it:
                 if not show_hidden and entry.name.startswith('.'):
                     continue
-                
+
                 try:
                     file_entry = self.get_file_entry(entry.path)
                     entries.append(file_entry)
@@ -140,7 +134,7 @@ class ExplorerService:
         abs_path = self._resolve_path(path)
         if os.path.exists(abs_path):
             raise FileExistsError(f"Path already exists: {path}")
-        
+
         if parents:
             os.makedirs(abs_path, exist_ok=True)
         else:
@@ -151,7 +145,7 @@ class ExplorerService:
         abs_path = self._resolve_path(path)
         if not os.path.exists(abs_path):
             raise FileNotFoundError(f"Path not found: {path}")
-        
+
         if os.path.isdir(abs_path):
             if recursive:
                 shutil.rmtree(abs_path)
@@ -169,14 +163,14 @@ class ExplorerService:
 
         if not os.path.exists(abs_source):
             raise FileNotFoundError(f"Source not found: {source}")
-        
+
         if os.path.exists(abs_dest):
             if not overwrite:
                 raise FileExistsError(f"Destination exists: {destination}")
-            # If overwrite is true, os.rename usually overwrites on Linux for files, 
+            # If overwrite is true, os.rename usually overwrites on Linux for files,
             # but for directories it might fail or behave differently depending on emptiness.
             # shutil.move is safer generally but might not be atomic.
-        
+
         shutil.move(abs_source, abs_dest)
         return abs_dest
 
@@ -189,23 +183,23 @@ class ExplorerService:
                 capture_output=True, text=True, check=True
             )
             data = json.loads(result.stdout)
-            
+
             for device in data.get('blockdevices', []):
                 self._process_lsblk_device(device, devices)
-                
+
         except Exception as e:
             logger.error(f"Error listing USB devices: {e}")
             # Fallback could be checking /media or /run/media
-            
+
         return devices
 
     def _process_lsblk_device(self, device_info: dict, devices_list: List[USBDevice]):
         # Check if it's removable (RM="1" or True) and has a mountpoint
         # Note: lsblk JSON output types can vary slightly by version.
-        
+
         is_removable = str(device_info.get('rm', '0')) == '1' or device_info.get('rm') is True
         mount_point = device_info.get('mountpoint')
-        
+
         # We generally want children partitions if available
         children = device_info.get('children', [])
         if children:
@@ -220,7 +214,7 @@ class ExplorerService:
             free = 0
             total = 0
             usage_pct = 0.0
-            
+
             try:
                 usage = shutil.disk_usage(mount_point)
                 total = usage.total
@@ -248,4 +242,3 @@ class ExplorerService:
                 model=device_info.get('model'),
                 serial=device_info.get('serial')
             ))
-import json

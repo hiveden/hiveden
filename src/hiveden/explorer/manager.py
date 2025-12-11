@@ -176,8 +176,14 @@ class ExplorerManager:
         try:
             cursor = conn.cursor()
             
-            source_paths_json = json.dumps(op.source_paths) if isinstance(op.source_paths, list) else op.source_paths
-            result_json = json.dumps(op.result) if isinstance(op.result, (dict, list)) else op.result
+            def json_serial(obj):
+                """JSON serializer for objects not serializable by default json code"""
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                raise TypeError(f"Type {type(obj)} not serializable")
+
+            source_paths_json = json.dumps(op.source_paths, default=json_serial) if isinstance(op.source_paths, list) else op.source_paths
+            result_json = json.dumps(op.result, default=json_serial) if isinstance(op.result, (dict, list)) else op.result
 
             cursor.execute(
                 """
