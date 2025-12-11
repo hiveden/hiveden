@@ -11,6 +11,7 @@ from hiveden.api.dtos import (
     ContainerListResponse, 
     ContainerResponse, 
     ContainerCreateResponse, 
+    ContainerConfigResponse,
     NetworkListResponse, 
     NetworkResponse,
     TemplateResponse
@@ -177,6 +178,91 @@ def stop_one_container(container_id: str):
         return ContainerResponse(data=stop_container(container_id))
     except Exception as e:
         logger.error(f"Error stopping container {container_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/containers/{container_id}/restart", response_model=ContainerResponse)
+def restart_one_container(container_id: str):
+    from hiveden.docker.containers import restart_container
+    try:
+        return ContainerResponse(data=restart_container(container_id))
+    except Exception as e:
+        logger.error(f"Error restarting container {container_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/containers/{container_id}/config", response_model=ContainerConfigResponse)
+def get_container_configuration(container_id: str):
+    from hiveden.docker.containers import get_container_config
+    try:
+        config = get_container_config(container_id)
+        return ContainerConfigResponse(data=config)
+    except Exception as e:
+        logger.error(f"Error getting container config {container_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/containers/{container_id}", response_model=ContainerCreateResponse)
+def update_container_configuration(container_id: str, container: ContainerCreate):
+    from hiveden.docker.containers import update_container, get_container
+    
+    db_manager = get_db_manager()
+    container_repo = ContainerRepository(db_manager)
+    attr_repo = ContainerAttributeRepository(db_manager)
+    
+    try:
+        # Update DB Record
+        # 1. Find existing record by old name (Need to get old name first)
+        # We need the old container info to find the DB record if we rely on name.
+        # But wait, get_container_config(container_id) gives us the current name.
+        # Alternatively, if we tracked container_id in DB, it would be easier.
+        # Assuming we can find by name.
+        
+        # Get old config to know the name
+        from hiveden.docker.containers import get_container_config
+        old_config = get_container_config(container_id)
+        old_name = old_config["name"]
+        
+        # Find DB record
+        record = container_repo.find_by_name(old_name)
+        if record:
+            # Update record
+            container_repo.update(record.id, **{
+                "name": container.name,
+                "type": container.type,
+                "is_container": container.is_container,
+                "enabled": container.enabled
+            })
+            
+            # Update attributes (delete old, insert new)
+            attr_repo.delete_by_container_id(record.id)
+            
+            attributes = {
+                "image": container.image,
+                "command": json.dumps(container.command) if container.command else None,
+                "env": json.dumps([e.dict() for e in container.env]) if container.env else None,
+                "ports": json.dumps([p.dict() for p in container.ports]) if container.ports else None,
+                "mounts": json.dumps([m.dict() for m in container.mounts]) if container.mounts else None,
+                "labels": json.dumps(container.labels) if container.labels else None
+            }
+            
+            for key, value in attributes.items():
+                if value:
+                    attr_repo.create({
+                        "container_id": record.id,
+                        "name": key,
+                        "value": value
+                    })
+        
+        # Update Docker
+        c = update_container(container_id, container)
+        
+        # Return new container info
+        docker_response = get_container(c.id)
+        return ContainerCreateResponse(data=docker_response)
+        
+    except Exception as e:
+        logger.error(f"Error updating container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

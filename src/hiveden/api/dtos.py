@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from hiveden.docker.models import Container as DockerContainer, Network as DockerNetwork, DockerContainer as ContainerConfig
+from hiveden.docker.models import Container as DockerContainer, Network as DockerNetwork, DockerContainer as ContainerConfig, ContainerCreate
 from hiveden.pkgs.models import PackageStatus
 from hiveden.storage.models import Disk, DiskDetail, StorageStrategy
 from hiveden.shares.models import (
@@ -82,6 +82,10 @@ class ContainerResponse(BaseResponse):
 
 class ContainerCreateResponse(BaseResponse):
     data: DockerContainer
+
+
+class ContainerConfigResponse(BaseResponse):
+    data: ContainerCreate
 
 
 class TemplateResponse(BaseResponse):

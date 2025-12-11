@@ -223,6 +223,12 @@ class DockerManager:
         # Return the Pydantic model for the response
         return self.get_container(container_id)
 
+    def restart_container(self, container_id):
+        """Restart a Docker container."""
+        container = self.client.containers.get(container_id)
+        container.restart()
+        return self.get_container(container_id)
+
     def stop_container(self, container_id):
         """Stop a running Docker container."""
         # Use the raw client to get the container object, which has the .stop() method
@@ -294,6 +300,79 @@ class DockerManager:
         )
 
 
+    def get_container_config(self, container_id):
+        """Retrieve the configuration of a container."""
+        c = self.client.containers.get(container_id)
+        config = c.attrs['Config']
+        host_config = c.attrs['HostConfig']
+
+        # Env: ["VAR=VAL", ...] -> [{"name": "VAR", "value": "VAL"}]
+        env = []
+        for e in config.get('Env', []) or []:
+            if '=' in e:
+                k, v = e.split('=', 1)
+                env.append({'name': k, 'value': v})
+
+        # Ports: "80/tcp": [{"HostPort": "8080"}] -> [{"host_port": 8080, "container_port": 80, "protocol": "tcp"}]
+        ports = []
+        port_bindings = host_config.get('PortBindings') or {}
+        for k, v in port_bindings.items():
+            if v:
+                host_port = v[0].get('HostPort')
+                if '/' in k:
+                    cp, proto = k.split('/')
+                else:
+                    cp, proto = k, 'tcp'
+                ports.append({'host_port': int(host_port), 'container_port': int(cp), 'protocol': proto})
+
+        # Mounts: Binds ["/host:/container:rw"] -> [{"source": "/host", "target": "/container"}]
+        mounts = []
+        binds = host_config.get('Binds') or []
+        for b in binds:
+            parts = b.split(':')
+            if len(parts) >= 2:
+                mounts.append({'source': parts[0], 'target': parts[1]})
+
+        return {
+            "name": c.name.lstrip('/'),
+            "image": config.get('Image'),
+            "command": config.get('Cmd'),
+            "env": env,
+            "ports": ports,
+            "mounts": mounts,
+            "labels": config.get('Labels'),
+            "is_container": True,
+            "enabled": True,
+            "type": "docker"
+        }
+
+    def update_container(self, container_id, config):
+        """Update a container by removing the old one and creating a new one."""
+        try:
+            old_container = self.client.containers.get(container_id)
+            old_name = old_container.name
+            
+            # If name is changing, we must remove the old container first to avoid conflict if not handled by create
+            # Or if we want to guarantee the old one is gone before starting new one.
+            # create_container handles same-name replacement.
+            if config.name != old_name:
+                print(f"Renaming container from {old_name} to {config.name}. Removing old container...")
+                old_container.remove(force=True)
+            
+            # Call create_container
+            return self.create_container(
+                name=config.name,
+                image=config.image,
+                command=config.command,
+                env=config.env,
+                ports=config.ports,
+                mounts=config.mounts,
+                labels=config.labels
+            )
+        except errors.NotFound:
+            raise ValueError(f"Container {container_id} not found to update")
+
+
 # Wrappers for backward compatibility
 def create_container(*args, **kwargs):
     return DockerManager().create_container(*args, **kwargs)
@@ -310,6 +389,9 @@ def stop_containers(containers):
 def start_container(container_id):
     return DockerManager().start_container(container_id)
 
+def restart_container(container_id):
+    return DockerManager().restart_container(container_id)
+
 def stop_container(container_id):
     return DockerManager().stop_container(container_id)
 
@@ -321,3 +403,9 @@ def delete_containers(containers):
 
 def describe_container(container_id=None, name=None):
     return DockerManager().describe_container(container_id, name)
+
+def get_container_config(container_id):
+    return DockerManager().get_container_config(container_id)
+
+def update_container(container_id, config):
+    return DockerManager().update_container(container_id, config)

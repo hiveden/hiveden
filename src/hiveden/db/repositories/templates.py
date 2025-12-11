@@ -17,6 +17,17 @@ class ContainerRepository(BaseRepository):
         finally:
             conn.close()
 
+    def find_by_name(self, name: str) -> Optional[Container]:
+        conn = self.manager.get_connection()
+        try:
+            cursor = conn.cursor()
+            query = "SELECT * FROM containers WHERE name = %s AND deleted_at IS NULL" if self.manager.db_type != 'sqlite' else "SELECT * FROM containers WHERE name = ? AND deleted_at IS NULL"
+            cursor.execute(query, (name,))
+            row = cursor.fetchone()
+            return self._to_model(dict(row)) if row else None
+        finally:
+            conn.close()
+
     def create(self, data: Dict[str, Any]) -> Optional[Container]:
         """Create a new container record."""
         return super().create(data)
@@ -39,6 +50,16 @@ class ContainerAttributeRepository(BaseRepository):
             cursor.execute(query, (container_id,))
             rows = cursor.fetchall()
             return [self._to_model(dict(row)) for row in rows]
+        finally:
+            conn.close()
+
+    def delete_by_container_id(self, container_id: int):
+        conn = self.manager.get_connection()
+        try:
+            cursor = conn.cursor()
+            query = "DELETE FROM container_attributes WHERE container_id = %s" if self.manager.db_type != 'sqlite' else "DELETE FROM container_attributes WHERE container_id = ?"
+            cursor.execute(query, (container_id,))
+            conn.commit()
         finally:
             conn.close()
 
