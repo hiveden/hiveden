@@ -1,8 +1,9 @@
 import os
+
 import docker
 from docker import errors
 
-from hiveden.config import config
+from hiveden.config import config as app_config
 from hiveden.docker.images import image_exists, pull_image
 from hiveden.docker.models import Container
 from hiveden.docker.networks import create_network, network_exists
@@ -19,7 +20,7 @@ class DockerManager:
         """Extract IP address from container attributes."""
         ip_address = None
         networks = container_attrs.get("NetworkSettings", {}).get("Networks", {})
-        
+
         if self.network_name in networks:
             ip_address = networks[self.network_name].get("IPAddress")
         elif networks:
@@ -75,7 +76,7 @@ class DockerManager:
             for mount in mounts:
                 source_path = mount.source
                 if getattr(mount, "is_app_directory", False):
-                    source_path = os.path.join(config.app_directory, mount.source)
+                    source_path = os.path.join(app_config.app_directory, mount.source)
                     if not os.path.exists(source_path):
                         try:
                             os.makedirs(source_path, exist_ok=True)
@@ -123,14 +124,14 @@ class DockerManager:
     def get_container(self, container_id) -> Container:
         """Get a Docker container by its ID."""
         c = self.client.containers.get(container_id)
-        
+
         try:
             image = c.image.tags[0] if c.image and c.image.tags else "N/A"
             image_id = c.image.id
         except errors.ImageNotFound:
             image = "Not Found (404)"
             image_id = "Not Found (404)"
-        
+
         name = c.name if c.name else "N/A"
         ip_address = self.extract_ip(c.attrs)
 
@@ -192,17 +193,17 @@ class DockerManager:
 
     def stream_logs(self, container_id, follow=True, tail=100):
         """Stream logs from a Docker container.
-        
+
         Args:
             container_id: Container ID or name
             follow: If True, stream logs in real-time
             tail: Number of lines to show from the end (default 100)
-        
+
         Yields:
             Log lines as they are generated
         """
         container = self.client.containers.get(container_id)
-        
+
         # Stream logs
         for log_line in container.logs(stream=follow, follow=follow, tail=tail):
             # Decode bytes to string and yield
@@ -242,7 +243,7 @@ class DockerManager:
     def remove_container(self, container_id):
         """Remove a Docker container."""
         container = self.client.containers.get(container_id)
-        
+
         if container.status == 'running':
             raise ValueError(f"Container '{container.name}' is currently running. Please stop it before removal.")
 
@@ -336,10 +337,10 @@ class DockerManager:
                 source = parts[0]
                 target = parts[1]
                 is_app_dir = False
-                
-                if source == config.app_directory or source.startswith(os.path.join(config.app_directory, "")):
+
+                if source == app_config.app_directory or source.startswith(os.path.join(app_config.app_directory, "")):
                     is_app_dir = True
-                    source = os.path.relpath(source, config.app_directory)
+                    source = os.path.relpath(source, app_config.app_directory)
 
                 mounts.append({'source': source, 'target': target, 'is_app_directory': is_app_dir})
 
@@ -363,10 +364,10 @@ class DockerManager:
             # Always remove the old container to avoid conflicts and ensure clean state
             # If name is same, create_container would handle it, but if name changed, we need this.
             old_container.remove(force=True)
-            
+
         except errors.NotFound:
             print(f"Container {container_id} not found during update. Proceeding to create.")
-            
+
         # Call create_container
         return self.create_container(
             name=config.name,
