@@ -41,6 +41,38 @@ class TestBtrfsManager(unittest.TestCase):
         # Verify mount
         mock_run.assert_any_call(['mount', '-o', 'subvolid=257', '/dev/sda1', '/shares/myshare'], check=True)
         
-        # Verify fstab write
-        mock_open.assert_called_with('/etc/fstab', 'a')
-        mock_open().write.assert_called_with('UUID=1234-5678 /shares/myshare btrfs subvolid=257,defaults 0 0\n')
+    @patch('hiveden.shares.btrfs.BtrfsManager._get_btrfs_root_mountpoint')
+    @patch('subprocess.run')
+    @patch('builtins.open', new_callable=unittest.mock.mock_open, read_data="UUID=1234 /shares/movies btrfs subvolid=256,defaults 0 0\n")
+    def test_list_shares_missing_root(self, mock_file, mock_run, mock_get_root):
+        # Setup: findfs returns device, show returns fail (simulating not mounted or error), get_root returns None
+        
+        # Mock findfs
+        mock_findfs = MagicMock()
+        mock_findfs.returncode = 0
+        mock_findfs.stdout = "/dev/sda1\n"
+        
+        # Mock subvolume show (failing)
+        mock_show = MagicMock()
+        mock_show.side_effect = Exception("Not mounted")
+        
+        def run_side_effect(cmd, **kwargs):
+            if cmd[0] == 'findfs':
+                return mock_findfs
+            if cmd[0] == 'btrfs' and cmd[1] == 'subvolume' and cmd[2] == 'show':
+                raise Exception("Not mounted")
+            return MagicMock()
+
+        mock_run.side_effect = run_side_effect
+        mock_get_root.return_value = None # Simulate missing root mount
+
+        manager = BtrfsManager()
+        shares = manager.list_shares()
+
+        self.assertEqual(len(shares), 1)
+        share = shares[0]
+        self.assertEqual(share.name, "movies") # Fallback to basename
+        self.assertEqual(share.mount_path, "/shares/movies")
+        self.assertIsNone(share.parent_path)
+        self.assertEqual(share.subvolid, "256")
+

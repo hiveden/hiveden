@@ -85,17 +85,16 @@ class BtrfsManager:
                              except Exception:
                                  pass # If fails, subvol_name remains None
                         
-                        if not subvol_name: # Cannot determine subvolume name
-                            continue
+                        if not subvol_name:
+                             # Fallback to basename of mount path if name cannot be determined
+                             subvol_name = os.path.basename(mount_path)
 
                         # Find the root Btrfs mountpoint for the device
                         parent_path = self._get_btrfs_root_mountpoint(device)
-                        if not parent_path:
-                            continue # Skip if root mount not found
-
+                        
                         shares.append(BtrfsShare(
                             name=subvol_name,
-                            parent_path=parent_path,
+                            parent_path=parent_path, # Can be None now
                             mount_path=mount_path,
                             device=device,
                             subvolid=subvolid if subvolid else "unknown" # subvolid should be present if mounted with it

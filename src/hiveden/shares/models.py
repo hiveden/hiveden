@@ -28,7 +28,7 @@ class BtrfsSubvolume(BaseModel):
 
 class BtrfsShare(BaseModel):
     name: str
-    parent_path: str
+    parent_path: Optional[str] = None
     mount_path: str
     device: str
     subvolid: str
