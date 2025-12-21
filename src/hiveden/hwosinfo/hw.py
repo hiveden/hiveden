@@ -16,6 +16,19 @@ def get_disks():
     return data["blockdevices"]
 
 
+def get_mounts():
+    """Return a list of all mounted filesystems."""
+    # findmnt --json --real
+    # --real: Avoids virtual filesystems like sysfs, proc, etc.
+    cmd = ["findmnt", "--json", "--real"]
+    try:
+        output = subprocess.check_output(cmd).decode()
+        data = json.loads(output)
+        return data.get("filesystems", [])
+    except Exception:
+        return []
+
+
 def get_host_ip():
     """Retrieves the primary IP address of the host."""
     try:

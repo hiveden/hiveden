@@ -41,9 +41,11 @@ MOCK_LSBLK_DATA = [
     }
 ]
 
+@patch('hiveden.storage.devices.get_mounts')
 @patch('hiveden.storage.devices.get_raw_disks')
-def test_get_system_disks_parsing(mock_get_raw):
+def test_get_system_disks_parsing(mock_get_raw, mock_get_mounts):
     mock_get_raw.return_value = MOCK_LSBLK_DATA
+    mock_get_mounts.return_value = [] # Return empty mounts for simplicity
     
     disks = get_system_disks()
     
@@ -62,9 +64,11 @@ def test_get_system_disks_parsing(mock_get_raw):
     assert sdb.available is True
     assert len(sdb.partitions) == 0
 
+@patch('hiveden.storage.devices.get_mounts')
 @patch('hiveden.storage.devices.get_raw_disks')
-def test_get_unused_disks(mock_get_raw):
+def test_get_unused_disks(mock_get_raw, mock_get_mounts):
     mock_get_raw.return_value = MOCK_LSBLK_DATA
+    mock_get_mounts.return_value = []
     
     unused = get_unused_disks()
     

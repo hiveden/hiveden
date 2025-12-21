@@ -1,6 +1,12 @@
 from typing import List, Optional, Literal
 from pydantic import BaseModel
 
+class MountPoint(BaseModel):
+    path: str
+    options: Optional[str] = None
+    fstype: Optional[str] = None
+    source: Optional[str] = None
+
 class Partition(BaseModel):
     name: str
     path: str
@@ -8,6 +14,7 @@ class Partition(BaseModel):
     fstype: Optional[str] = None
     uuid: Optional[str] = None
     mountpoint: Optional[str] = None
+    mountpoints: List[MountPoint] = []
 
 class Disk(BaseModel):
     name: str
