@@ -13,11 +13,15 @@ class BtrfsManager:
         volumes = []
         for part in psutil.disk_partitions(all=False):
             if part.fstype == "btrfs":
+                # Find parent path (root mount)
+                parent_path = self._get_btrfs_root_mountpoint(part.device)
+                
                 # Try to get label using lsblk if possible, but keep it simple for now
                 volumes.append(BtrfsVolume(
                     device=part.device,
                     mountpoint=part.mountpoint,
-                    label=os.path.basename(part.mountpoint) # fallback label
+                    label=os.path.basename(part.mountpoint), # fallback label
+                    parent_path=parent_path
                 ))
         return volumes
 

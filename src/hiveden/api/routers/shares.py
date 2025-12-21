@@ -126,26 +126,26 @@ def destroy_smb_share_endpoint(name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-from hiveden.api.dtos import CreateBtrfsShareRequest
+from hiveden.api.dtos import CreateBtrfsShareRequest, BtrfsVolumeListResponse, BtrfsShareListResponse
 
-@router.get("/btrfs/volumes", response_model=DataResponse)
+@router.get("/btrfs/volumes", response_model=BtrfsVolumeListResponse)
 def list_btrfs_volumes_endpoint():
     from hiveden.shares.btrfs import BtrfsManager
     try:
         manager = BtrfsManager()
         # manager.list_volumes() returns List[BtrfsVolume]
-        return DataResponse(data=manager.list_volumes())
+        return BtrfsVolumeListResponse(data=manager.list_volumes())
     except Exception as e:
         logger.error(f"Error listing Btrfs volumes: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/btrfs/shares", response_model=DataResponse)
+@router.get("/btrfs/shares", response_model=BtrfsShareListResponse)
 def list_btrfs_shares_endpoint():
     from hiveden.shares.btrfs import BtrfsManager
     try:
         manager = BtrfsManager()
         # manager.list_shares() returns List[BtrfsShare]
-        return DataResponse(data=manager.list_shares())
+        return BtrfsShareListResponse(data=manager.list_shares())
     except Exception as e:
         logger.error(f"Error listing Btrfs shares: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

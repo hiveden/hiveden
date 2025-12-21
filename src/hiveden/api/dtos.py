@@ -116,6 +116,12 @@ class StorageStrategyApplyResponse(BaseResponse):
     data: JobInfo
 
 
+class BtrfsShareListResponse(BaseResponse):
+    data: List[BtrfsShare]
+
+class BtrfsVolumeListResponse(BaseResponse):
+    data: List[BtrfsVolume]
+
 class DataResponse(BaseResponse):
     data: Optional[Union[
         DockerContainer,

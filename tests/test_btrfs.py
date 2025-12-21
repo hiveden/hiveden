@@ -4,13 +4,16 @@ from hiveden.shares.btrfs import BtrfsManager
 import os
 
 class TestBtrfsManager(unittest.TestCase):
+    @patch('hiveden.shares.btrfs.BtrfsManager._get_btrfs_root_mountpoint')
     @patch('psutil.disk_partitions')
-    def test_list_volumes(self, mock_partitions):
+    def test_list_volumes(self, mock_partitions, mock_get_root):
         mock_part = MagicMock()
         mock_part.fstype = 'btrfs'
         mock_part.device = '/dev/sda1'
         mock_part.mountpoint = '/mnt/data'
         mock_partitions.return_value = [mock_part]
+        
+        mock_get_root.return_value = '/mnt/data'
 
         manager = BtrfsManager()
         volumes = manager.list_volumes()
@@ -18,6 +21,7 @@ class TestBtrfsManager(unittest.TestCase):
         self.assertEqual(len(volumes), 1)
         self.assertEqual(volumes[0].device, '/dev/sda1')
         self.assertEqual(volumes[0].mountpoint, '/mnt/data')
+        self.assertEqual(volumes[0].parent_path, '/mnt/data')
 
     @patch('hiveden.shares.btrfs.BtrfsManager._is_btrfs')
     @patch('hiveden.shares.btrfs.BtrfsManager._get_device_for_path')

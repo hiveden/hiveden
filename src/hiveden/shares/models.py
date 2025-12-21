@@ -19,6 +19,7 @@ class BtrfsVolume(BaseModel):
     device: str
     mountpoint: str
     label: Optional[str] = None
+    parent_path: Optional[str] = None
 
 class BtrfsSubvolume(BaseModel):
     id: int
