@@ -76,9 +76,12 @@ class DockerManager:
             pihole_ip = traefik_client.get_service_ip("pihole")
             pihole_domains = traefik_client.find_domains_for_router("pihole")
             if len(pihole_domains) > 0 and len(pihole_ip) > 0:
-                pihole_manager = PiHoleManager(pihole_domains[0], app_config.pihole_password)
-                target_ip = ingress_config.host_ip or get_host_ip()
-                pihole_manager.add_ingress_domain_to_pihole(pihole_ip[0], target_ip)
+                try:
+                    pihole_manager = PiHoleManager(pihole_domains[0], app_config.pihole_password)
+                    target_ip = ingress_config.host_ip or get_host_ip()
+                    pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
+                except Exception as e:
+                    print(f"Failed to add ingress domain {ingress_config.domain} to pihole: {e}")
 
         container_labels["managed-by"] = "hiveden"
         kwargs["labels"] = container_labels
