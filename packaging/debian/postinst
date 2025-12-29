@@ -2,3 +2,6 @@
 
 mkdir -p /opt/hiveden
 chmod 644 /opt/hiveden
+
+# Install PyPI-only dependencies (pihole6api, yoyo-migrations)
+pip3 install --no-deps pihole6api yoyo-migrations 2>/dev/null || true

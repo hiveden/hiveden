@@ -12,3 +12,12 @@ pre_upgrade() {
 pre_install() {
     :
 }
+
+post_install() {
+    # Install PyPI-only dependencies (pihole6api, yoyo-migrations)
+    pip install --no-deps pihole6api yoyo-migrations 2>/dev/null || true
+}
+
+post_upgrade() {
+    post_install
+}

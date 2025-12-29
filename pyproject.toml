@@ -24,10 +24,16 @@ dependencies = [
     "PyYAML",
     "psutil",
     "lxc",
-    "pihole6api",
     "psycopg2",
     "paramiko",
     "websockets",
+]
+
+[project.optional-dependencies]
+# These are PyPI-only packages that will be auto-installed during system package installation
+extras = [
+    "pihole6api",
+    "yoyo-migrations",
 ]
 
 [tool.setuptools.dynamic]
