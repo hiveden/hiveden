@@ -42,11 +42,14 @@ class DockerManager:
         mounts=None,
         labels=None,
         ingress_config=None,
+        app_directory=None,
         **kwargs,
     ):
         """Create a new Docker container and connect it to the hiveden network."""
         # Use instance network_name if not provided, though argument overrides it
         target_network = network_name or self.network_name
+        # Use provided app_directory or fallback to config
+        effective_app_dir = app_directory or app_config.app_directory
 
         if not image_exists(image):
             print(f"Image '{image}' not found locally. Pulling from registry...")
@@ -96,12 +99,13 @@ class DockerManager:
             for port in ports:
                 port_bindings[f"{port.container_port}/{port.protocol}"] = port.host_port
 
+        container_name = kwargs.get("name", "")
         volumes = {}
         if mounts:
             for mount in mounts:
                 source_path = mount.source
                 if getattr(mount, "is_app_directory", False):
-                    source_path = os.path.join(app_config.app_directory, mount.source)
+                    source_path = os.path.join(effective_app_dir, container_name, mount.source)
                     if not os.path.exists(source_path):
                         try:
                             os.makedirs(source_path, exist_ok=True)
@@ -111,7 +115,6 @@ class DockerManager:
 
                 volumes[source_path] = {"bind": mount.target, "mode": "rw"}
 
-        container_name = kwargs.get("name", "")
         try:
             container = self.client.containers.get(container_name)
             print(f"Container '{container_name}' already exists. Recreating with new configuration...")
@@ -382,7 +385,7 @@ class DockerManager:
             "type": "docker"
         }
 
-    def update_container(self, container_id, config):
+    def update_container(self, container_id, config, app_directory=None):
         """Update a container by removing the old one and creating a new one."""
         try:
             old_container = self.client.containers.get(container_id)
@@ -393,16 +396,23 @@ class DockerManager:
         except errors.NotFound:
             print(f"Container {container_id} not found during update. Proceeding to create.")
 
+        # Helper to get value from dict or object
+        def get_val(obj, key):
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
         # Call create_container
         return self.create_container(
-            name=config.name,
-            image=config.image,
-            command=config.command,
-            env=config.env,
-            ports=config.ports,
-            mounts=config.mounts,
-            labels=config.labels,
-            ingress_config=config.ingress_config
+            name=get_val(config, 'name'),
+            image=get_val(config, 'image'),
+            command=get_val(config, 'command'),
+            env=get_val(config, 'env'),
+            ports=get_val(config, 'ports'),
+            mounts=get_val(config, 'mounts'),
+            labels=get_val(config, 'labels'),
+            ingress_config=get_val(config, 'ingress_config'),
+            app_directory=app_directory
         )
 
 
@@ -440,5 +450,5 @@ def describe_container(container_id=None, name=None):
 def get_container_config(container_id):
     return DockerManager().get_container_config(container_id)
 
-def update_container(container_id, config):
-    return DockerManager().update_container(container_id, config)
+def update_container(container_id, config, app_directory=None):
+    return DockerManager().update_container(container_id, config, app_directory)

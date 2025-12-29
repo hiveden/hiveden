@@ -33,6 +33,12 @@ dependencies = [
 [tool.setuptools.dynamic]
 version = {attr = "hiveden.version.__version__"}
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"hiveden.db.migrations" = ["*.sql"]
+
 [project.urls]
 "Homepage" = "https://github.com/hiveden/hiveden"
 "Bug Tracker" = "https://github.com/hiveden/hiveden/issues"

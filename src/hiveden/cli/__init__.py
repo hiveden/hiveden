@@ -16,10 +16,6 @@ def main(ctx):
     """Hiveden CLI"""
     ctx.ensure_object(dict)
 
-    # Initialize the database on startup
-    from hiveden.db.session import get_db_manager
-    get_db_manager().initialize_db()
-
 main.add_command(docker)
 main.add_command(lxc)
 main.add_command(pkgs)
@@ -59,12 +55,21 @@ def apply(config):
 @main.command()
 @click.option('--host', default='127.0.0.1', help='The host to bind to.')
 @click.option('--port', default=8000, help='The port to bind to.')
-@click.option('--db-url', default='sqlite:///hiveden.db', help='The database URL.')
+@click.option('--db-url', help='The database URL. Defaults to environment variables.')
 def server(host, port, db_url):
     """Run the FastAPI server."""
     import uvicorn
+    from hiveden.bootstrap.manager import bootstrap_infrastructure, bootstrap_data
     
-    os.environ["HIVEDEN_DB_URL"] = db_url
+    # 1. Bootstrap Infrastructure (Directories, Core Containers like DB)
+    bootstrap_infrastructure()
+    
+    if db_url:
+        os.environ["HIVEDEN_DB_URL"] = db_url
+
+    # 2. Bootstrap Data (Migrations, DB-dependent logic)
+    # This will internally wait for DB to be ready
+    bootstrap_data()
 
     from hiveden.api.server import app
     uvicorn.run(app, host=host, port=port, log_level="debug")

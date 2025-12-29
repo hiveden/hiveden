@@ -15,6 +15,7 @@ from hiveden.shares.models import (
 )
 from hiveden.lxc.models import LXCContainer
 from hiveden.hwosinfo.models import OSInfo, HWInfo
+from hiveden.explorer.models import FilesystemLocation
 
 
 class ConfigResponse(BaseModel):
@@ -122,6 +123,26 @@ class BtrfsShareListResponse(BaseResponse):
 class BtrfsVolumeListResponse(BaseResponse):
     data: List[BtrfsVolume]
 
+class LocationListResponse(BaseResponse):
+    data: List[FilesystemLocation]
+
+
+class IngressContainerInfo(BaseModel):
+    name: str
+    id: str
+    url: str
+
+class DomainInfoResponse(BaseResponse):
+    domain: str
+    containers: List[IngressContainerInfo]
+
+class DomainUpdateRequest(BaseModel):
+    domain: str
+
+class DomainUpdateResponse(BaseResponse):
+    updated_containers: List[str]
+
+
 class DataResponse(BaseResponse):
     data: Optional[Union[
         DockerContainer,
@@ -155,6 +176,8 @@ class DataResponse(BaseResponse):
         List[BtrfsShare],
         List[str],
         List[Dict[str, Any]],
-        Dict[str, Any]
+        Dict[str, Any],
+        DomainInfoResponse, # Added
+        DomainUpdateResponse # Added
     ]] = None
 

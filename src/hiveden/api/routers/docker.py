@@ -22,12 +22,10 @@ from hiveden.db.repositories.templates import ContainerRepository, ContainerAttr
 import os
 import json
 
-# Helper to get DB manager (in a real app, use dependency injection properly)
-def get_db_manager():
-    # Assuming DB URL is in environment or config
-    # For now, defaulting to local sqlite for dev
-    db_path = os.path.join(os.getcwd(), "hiveden.db")
-    return DatabaseManager(f"sqlite:///{db_path}")
+from hiveden.db.session import get_db_manager
+
+def get_db():
+    return get_db_manager()
 
 router = APIRouter(prefix="/docker", tags=["Docker"])
 

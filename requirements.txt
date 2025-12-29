@@ -6,3 +6,5 @@ PyYAML
 psutil
 lxc
 pihole6api
+yoyo-migrations
+psycopg2-binary

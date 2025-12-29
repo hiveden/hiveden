@@ -17,9 +17,9 @@ from hiveden.explorer.models import (
     ClipboardCopyRequest,
     ClipboardPasteRequest,
     ClipboardStatusResponse,
-    BookmarkCreateRequest,
-    BookmarkUpdateRequest,
-    ExplorerBookmark,
+    LocationCreateRequest,
+    LocationUpdateRequest,
+    FilesystemLocation,
     SearchRequest,
     OperationResponse,
     ExplorerOperation,
@@ -285,37 +285,40 @@ def clipboard_clear(session_id: str):
         del clipboard_store[session_id]
     return {"success": True, "message": "Clipboard cleared"}
 
-# --- Bookmarks ---
+# --- Bookmarks (Filesystem Locations) ---
 
 @router.get("/bookmarks")
 def list_bookmarks():
     manager = get_manager()
-    bookmarks = manager.get_bookmarks()
+    locations = manager.get_locations()
     # Check existence
     result = []
-    for bm in bookmarks:
-        bm.exists = os.path.exists(bm.path)
-        result.append(bm)
+    for loc in locations:
+        loc.exists = os.path.exists(loc.path)
+        result.append(loc)
     return {"success": True, "bookmarks": result, "total": len(result)}
 
 @router.post("/bookmarks", status_code=201)
-def create_bookmark(req: BookmarkCreateRequest):
+def create_bookmark(req: LocationCreateRequest):
     manager = get_manager()
-    bm = manager.create_bookmark(req.name, req.path)
-    return {"success": True, "message": "Bookmark created successfully", "bookmark": bm}
+    loc = manager.create_location(req.label, req.path, req.type, req.description)
+    return {"success": True, "message": "Bookmark created successfully", "bookmark": loc}
 
 @router.put("/bookmarks/{bookmark_id}")
-def update_bookmark(bookmark_id: int, req: BookmarkUpdateRequest):
+def update_bookmark(bookmark_id: int, req: LocationUpdateRequest):
     manager = get_manager()
-    bm = manager.update_bookmark(bookmark_id, req.name, req.path)
-    if not bm:
+    loc = manager.update_location(bookmark_id, req.label, req.path, req.description)
+    if not loc:
         raise HTTPException(status_code=404, detail="Bookmark not found")
-    return {"success": True, "message": "Bookmark updated successfully", "bookmark": bm}
+    return {"success": True, "message": "Bookmark updated successfully", "bookmark": loc}
 
 @router.delete("/bookmarks/{bookmark_id}")
 def delete_bookmark(bookmark_id: int):
     manager = get_manager()
-    manager.delete_bookmark(bookmark_id)
+    try:
+        manager.delete_location(bookmark_id)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
     return {"success": True, "message": "Bookmark deleted successfully"}
 
 # --- USB ---

@@ -1,6 +1,6 @@
 from typing import List, Optional, Any, Union, Dict
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from enum import Enum
 
 # --- Enums ---
@@ -41,10 +41,15 @@ class ExplorerConfig(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-class ExplorerBookmark(BaseModel):
+class FilesystemLocation(BaseModel):
     id: Optional[int] = None
-    name: str
+    key: Optional[str] = None
+    label: str
+    name: str # Compatibility alias for label
     path: str
+    type: str = "user_bookmark"
+    description: Optional[str] = None
+    is_editable: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     # Augmented field
@@ -138,13 +143,22 @@ class ClipboardStatusResponse(BaseModel):
     total_size: int
     total_size_human: str
 
-class BookmarkCreateRequest(BaseModel):
-    name: str
+class LocationCreateRequest(BaseModel):
+    label: str = Field(..., alias="name")
     path: str
+    type: str = "user_bookmark"
+    description: Optional[str] = None
 
-class BookmarkUpdateRequest(BaseModel):
-    name: Optional[str] = None
+    class Config:
+        allow_population_by_field_name = True
+
+class LocationUpdateRequest(BaseModel):
+    label: Optional[str] = Field(None, alias="name")
     path: Optional[str] = None
+    description: Optional[str] = None
+
+    class Config:
+        allow_population_by_field_name = True
 
 class SearchRequest(BaseModel):
     path: str

@@ -15,13 +15,15 @@ class BtrfsManager:
             if part.fstype == "btrfs":
                 # Find parent path (root mount)
                 parent_path = self._get_btrfs_root_mountpoint(part.device)
+                uuid = self._get_uuid_for_device(part.device)
                 
                 # Try to get label using lsblk if possible, but keep it simple for now
                 volumes.append(BtrfsVolume(
                     device=part.device,
                     mountpoint=part.mountpoint,
                     label=os.path.basename(part.mountpoint), # fallback label
-                    parent_path=parent_path
+                    parent_path=parent_path,
+                    uuid=uuid
                 ))
         return volumes
 
@@ -44,6 +46,7 @@ class BtrfsManager:
                         mount_path = parts[1]
                         options_str = parts[3]
                         
+                        uuid = None
                         # Resolve UUID=... to actual device path
                         device = device_spec
                         if device_spec.startswith("UUID="):
@@ -62,8 +65,14 @@ class BtrfsManager:
                              # Resolve symlink to real device
                              try:
                                  device = os.path.realpath(device_spec)
+                                 # Extract UUID from path if possible, or fetch later
+                                 uuid = os.path.basename(device_spec)
                              except Exception:
                                  pass
+                        
+                        # Ensure we have the UUID
+                        if not uuid and device:
+                             uuid = self._get_uuid_for_device(device)
 
                         subvolid = None
                         subvol_name = None
@@ -107,7 +116,8 @@ class BtrfsManager:
                             parent_path=parent_path, # Can be None now
                             mount_path=mount_path,
                             device=device,
-                            subvolid=subvolid if subvolid else "unknown" # subvolid should be present if mounted with it
+                            subvolid=subvolid if subvolid else "unknown", # subvolid should be present if mounted with it
+                            uuid=uuid
                         ))
         except FileNotFoundError:
             pass # /etc/fstab not found, return empty list
@@ -206,7 +216,7 @@ class BtrfsManager:
             # findmnt output might be /dev/md0[/subvol].
             # Instead, we list all btrfs mounts and check if they match our device.
             result = subprocess.run(
-                ["findmnt", "--raw", "--output", "TARGET,SOURCE,FSTYPE,OPTIONS", "--json"],
+                ["findmnt", "--output", "TARGET,SOURCE,FSTYPE,OPTIONS", "--json"],
                 capture_output=True, text=True, check=False
             )
             
@@ -215,19 +225,19 @@ class BtrfsManager:
                 filesystems = data.get("filesystems", [])
                 
                 for fs in filesystems:
-                    if fs.get("FSTYPE") != "btrfs":
+                    if fs.get("fstype") != "btrfs":
                         continue
                         
-                    source = fs.get("SOURCE", "")
+                    source = fs.get("source", "")
                     
                     # Check if source matches device. Source can be "/dev/md0" or "/dev/md0[/subvol]"
                     if source == device or source.startswith(f"{device}["):
-                        options = fs.get("OPTIONS", "").split(',')
+                        options = fs.get("options", "").split(',')
                         # Check for root subvolume indicators
                         # subvolid=5 is standard for top-level btrfs root
                         # subvol=/ is also a strong indicator
                         if "subvolid=5" in options or "subvol=/" in options:
-                            return fs.get("TARGET")
+                            return fs.get("target")
 
             # Fallback to psutil if findmnt fails or doesn't find it (though findmnt is better for complex sources)
             for part in psutil.disk_partitions(all=False):

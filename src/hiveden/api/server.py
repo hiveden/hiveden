@@ -13,21 +13,19 @@ from hiveden.api.routers import (
     shares,
     shell,
     storage,
+    system,
 )
-from hiveden.db.manager import DatabaseManager
+from hiveden.db.session import get_db_manager
 
 app = FastAPI(
     title="Hiveden API",
-    description="An API for managing your personal server.",
-    version="0.1.0",
+    description="Hiveden API",
 )
 
 # Initialize Database on Startup
 @app.on_event("startup")
 def startup_db():
-    # Load database URL from environment variable, with a default fallback to sqlite
-    db_url = os.getenv("HIVEDEN_DB_URL", "sqlite:///./hiveden.db")
-    db_manager = DatabaseManager(db_url)
+    db_manager = get_db_manager()
     db_manager.initialize_db()
 
 # Configure CORS
@@ -48,3 +46,4 @@ app.include_router(shell.router)
 app.include_router(pkgs.router)
 app.include_router(storage.router)
 app.include_router(explorer.router)
+app.include_router(system.router)

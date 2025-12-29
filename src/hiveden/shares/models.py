@@ -20,6 +20,7 @@ class BtrfsVolume(BaseModel):
     mountpoint: str
     label: Optional[str] = None
     parent_path: Optional[str] = None
+    uuid: Optional[str] = None
 
 class BtrfsSubvolume(BaseModel):
     id: int
@@ -33,3 +34,4 @@ class BtrfsShare(BaseModel):
     mount_path: str
     device: str
     subvolid: str
+    uuid: Optional[str] = None

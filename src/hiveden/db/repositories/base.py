@@ -15,7 +15,7 @@ class BaseRepository:
         conn = self.manager.get_connection()
         try:
             cursor = conn.cursor()
-            query = f"SELECT * FROM {self.table_name} WHERE id = %s" if self.manager.db_type != 'sqlite' else f"SELECT * FROM {self.table_name} WHERE id = ?"
+            query = f"SELECT * FROM {self.table_name} WHERE id = %s"
             cursor.execute(query, (id,))
             row = cursor.fetchone()
             return self._to_model(dict(row)) if row else None
@@ -52,17 +52,12 @@ class BaseRepository:
                 data.update(model_data)
 
             columns = ', '.join(data.keys())
-            placeholders = ', '.join(['%s'] * len(data)) if self.manager.db_type != 'sqlite' else ', '.join(['?'] * len(data))
+            placeholders = ', '.join(['%s'] * len(data))
             
-            query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
+            query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders}) RETURNING id"
             
-            if self.manager.db_type == 'sqlite':
-                cursor.execute(query, tuple(data.values()))
-                last_id = cursor.lastrowid
-            else:
-                query += " RETURNING id"
-                cursor.execute(query, tuple(data.values()))
-                last_id = cursor.fetchone()[0]
+            cursor.execute(query, tuple(data.values()))
+            last_id = cursor.fetchone()[0]
                 
             conn.commit()
             
@@ -78,11 +73,11 @@ class BaseRepository:
         conn = self.manager.get_connection()
         try:
             cursor = conn.cursor()
-            set_clause = ', '.join([f"{k} = %s" for k in kwargs.keys()]) if self.manager.db_type != 'sqlite' else ', '.join([f"{k} = ?" for k in kwargs.keys()])
+            set_clause = ', '.join([f"{k} = %s" for k in kwargs.keys()])
             values = list(kwargs.values())
             values.append(id)
             
-            query = f"UPDATE {self.table_name} SET {set_clause} WHERE id = %s" if self.manager.db_type != 'sqlite' else f"UPDATE {self.table_name} SET {set_clause} WHERE id = ?"
+            query = f"UPDATE {self.table_name} SET {set_clause} WHERE id = %s"
             
             cursor.execute(query, tuple(values))
             conn.commit()
@@ -98,7 +93,7 @@ class BaseRepository:
         conn = self.manager.get_connection()
         try:
             cursor = conn.cursor()
-            query = f"DELETE FROM {self.table_name} WHERE id = %s" if self.manager.db_type != 'sqlite' else f"DELETE FROM {self.table_name} WHERE id = ?"
+            query = f"DELETE FROM {self.table_name} WHERE id = %s"
             cursor.execute(query, (id,))
             conn.commit()
             return cursor.rowcount > 0

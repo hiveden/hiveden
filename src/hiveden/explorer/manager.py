@@ -6,7 +6,7 @@ import uuid
 from hiveden.db.session import get_db_manager
 from hiveden.explorer.models import (
     ExplorerConfig,
-    ExplorerBookmark,
+    FilesystemLocation,
     ExplorerOperation,
     OperationStatus
 )
@@ -40,117 +40,133 @@ class ExplorerManager:
         try:
             cursor = conn.cursor()
             # Check if exists
-            cursor.execute("SELECT id FROM explorer_config WHERE key = ?", (key,))
+            cursor.execute("SELECT id FROM explorer_config WHERE key = %s", (key,))
             row = cursor.fetchone()
             if row:
                 cursor.execute(
-                    "UPDATE explorer_config SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?",
+                    "UPDATE explorer_config SET value = %s, updated_at = CURRENT_TIMESTAMP WHERE key = %s",
                     (value, key)
                 )
             else:
                 cursor.execute(
-                    "INSERT INTO explorer_config (key, value) VALUES (?, ?)",
+                    "INSERT INTO explorer_config (key, value) VALUES (%s, %s)",
                     (key, value)
                 )
             conn.commit()
         finally:
             conn.close()
 
-    # --- Bookmarks ---
+    # --- Locations (Bookmarks) ---
 
-    def get_bookmarks(self) -> List[ExplorerBookmark]:
-        conn = self.db.get_connection()
-        try:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, path, created_at FROM explorer_bookmarks ORDER BY name")
-            rows = cursor.fetchall()
-            bookmarks = []
-            for row in rows:
-                bookmarks.append(ExplorerBookmark(
-                    id=row[0],
-                    name=row[1],
-                    path=row[2],
-                    created_at=row[3] if isinstance(row[3], datetime) else datetime.fromisoformat(row[3]) if row[3] else None
-                ))
-            return bookmarks
-        finally:
-            conn.close()
-
-    def create_bookmark(self, name: str, path: str) -> ExplorerBookmark:
+    def get_locations(self) -> List[FilesystemLocation]:
         conn = self.db.get_connection()
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO explorer_bookmarks (name, path) VALUES (?, ?)",
-                (name, path)
+                "SELECT id, key, label, path, type, description, is_editable, created_at, updated_at FROM filesystem_locations ORDER BY label"
             )
-            conn.commit()
-            bookmark_id = cursor.lastrowid
-            
-            # Fetch back
-            cursor.execute("SELECT created_at FROM explorer_bookmarks WHERE id = ?", (bookmark_id,))
-            row = cursor.fetchone()
-            created_at = row[0] if row else datetime.utcnow()
-            
-            return ExplorerBookmark(
-                id=bookmark_id,
-                name=name,
-                path=path,
-                created_at=created_at if isinstance(created_at, datetime) else datetime.fromisoformat(created_at) if created_at else None
-            )
+            rows = cursor.fetchall()
+            locations = []
+            for row in rows:
+                locations.append(FilesystemLocation(
+                    id=row[0],
+                    key=row[1],
+                    label=row[2],
+                    name=row[2],
+                    path=row[3],
+                    type=row[4],
+                    description=row[5],
+                    is_editable=row[6],
+                    created_at=row[7] if isinstance(row[7], datetime) else datetime.fromisoformat(row[7]) if row[7] else None,
+                    updated_at=row[8] if isinstance(row[8], datetime) else datetime.fromisoformat(row[8]) if row[8] else None
+                ))
+            return locations
         finally:
             conn.close()
 
-    def update_bookmark(self, bookmark_id: int, name: Optional[str], path: Optional[str]) -> Optional[ExplorerBookmark]:
+    def create_location(self, label: str, path: str, type: str = "user_bookmark", description: Optional[str] = None) -> FilesystemLocation:
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO filesystem_locations (label, path, type, description) VALUES (%s, %s, %s, %s) RETURNING id",
+                (label, path, type, description)
+            )
+            location_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            return self.get_location(location_id)
+        finally:
+            conn.close()
+
+    def update_location(self, location_id: int, label: Optional[str] = None, path: Optional[str] = None, description: Optional[str] = None) -> Optional[FilesystemLocation]:
         conn = self.db.get_connection()
         try:
             cursor = conn.cursor()
             updates = []
             params = []
-            if name:
-                updates.append("name = ?")
-                params.append(name)
+            if label:
+                updates.append("label = %s")
+                params.append(label)
             if path:
-                updates.append("path = ?")
+                updates.append("path = %s")
                 params.append(path)
+            if description is not None:
+                updates.append("description = %s")
+                params.append(description)
             
             if not updates:
-                return self.get_bookmark(bookmark_id)
+                return self.get_location(location_id)
             
             updates.append("updated_at = CURRENT_TIMESTAMP")
-            query = f"UPDATE explorer_bookmarks SET {', '.join(updates)} WHERE id = ?"
-            params.append(bookmark_id)
+            query = f"UPDATE filesystem_locations SET {', '.join(updates)} WHERE id = %s"
+            params.append(location_id)
             
             cursor.execute(query, tuple(params))
             conn.commit()
             
-            return self.get_bookmark(bookmark_id)
+            return self.get_location(location_id)
         finally:
             conn.close()
 
-    def get_bookmark(self, bookmark_id: int) -> Optional[ExplorerBookmark]:
+    def get_location(self, location_id: int) -> Optional[FilesystemLocation]:
         conn = self.db.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, name, path, created_at, updated_at FROM explorer_bookmarks WHERE id = ?", (bookmark_id,))
+            cursor.execute(
+                "SELECT id, key, label, path, type, description, is_editable, created_at, updated_at FROM filesystem_locations WHERE id = %s",
+                (location_id,)
+            )
             row = cursor.fetchone()
             if not row:
                 return None
-            return ExplorerBookmark(
+            return FilesystemLocation(
                 id=row[0],
-                name=row[1],
-                path=row[2],
-                created_at=row[3],
-                updated_at=row[4]
+                key=row[1],
+                label=row[2],
+                name=row[2],
+                path=row[3],
+                type=row[4],
+                description=row[5],
+                is_editable=row[6],
+                created_at=row[7] if isinstance(row[7], datetime) else datetime.fromisoformat(row[7]) if row[7] else None,
+                updated_at=row[8] if isinstance(row[8], datetime) else datetime.fromisoformat(row[8]) if row[8] else None
             )
         finally:
             conn.close()
 
-    def delete_bookmark(self, bookmark_id: int):
+    def delete_location(self, location_id: int):
         conn = self.db.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM explorer_bookmarks WHERE id = ?", (bookmark_id,))
+            # Prevent deleting system locations if needed, but schema allows it if not enforced here.
+            # Assuming strictly UI driven 'is_editable' check happens there, but good to check here.
+            cursor.execute("SELECT is_editable FROM filesystem_locations WHERE id = %s", (location_id,))
+            row = cursor.fetchone()
+            if row and not row[0]:
+                raise ValueError("Cannot delete a system location")
+
+            cursor.execute("DELETE FROM filesystem_locations WHERE id = %s", (location_id,))
             conn.commit()
         finally:
             conn.close()
