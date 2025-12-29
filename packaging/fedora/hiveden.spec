@@ -14,6 +14,7 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-build
 Requires:       systemd
+Requires:       python3-psycopg2
 
 %description
 A CLI tool and REST API for managing your personal server.

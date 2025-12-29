@@ -25,7 +25,7 @@ dependencies = [
     "psutil",
     "lxc",
     "pihole6api",
-    "psycopg2-binary",
+    "psycopg2",
     "paramiko",
     "websockets",
 ]
