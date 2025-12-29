@@ -42,6 +42,7 @@ exit 0
 %py3_install
 install -D -m644 %{SOURCE1} %{buildroot}%{_unitdir}/hiveden.service
 install -D -m644 %{SOURCE2} %{buildroot}%{_sysconfdir}/hiveden/config.yaml
+mkdir -p %{buildroot}/opt/hiveden
 
 %post
 %systemd_post hiveden.service
@@ -61,3 +62,4 @@ pip3 install --no-warn-script-location click fastapi uvicorn docker PyYAML psuti
 %{python3_sitelib}/hiveden-*.*-info
 %{_unitdir}/hiveden.service
 %config(noreplace) %{_sysconfdir}/hiveden/config.yaml
+%dir /opt/hiveden

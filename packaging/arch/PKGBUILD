@@ -21,4 +21,7 @@ package() {
   install -D -m644 "$srcdir/hiveden.service" "$pkgdir/usr/lib/systemd/system/hiveden.service"
   install -D -m644 "$srcdir/hiveden.default.yaml" "$pkgdir/etc/hiveden/config.yaml"
   install -D -m644 "$srcdir/hiveden.sysusers" "$pkgdir/usr/lib/sysusers.d/hiveden.conf"
+  
+  # Create application directory
+  install -d -m 755 "$pkgdir/opt/hiveden"
 }

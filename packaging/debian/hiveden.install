@@ -1,2 +1,4 @@
 hiveden.service /usr/lib/systemd/system/
 config.yaml /etc/hiveden/
+usr/bin
+usr/lib/python3
