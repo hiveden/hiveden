@@ -71,7 +71,9 @@ def parse_ingress_from_labels(domain: str, labels: dict) -> Optional[IngressConf
     if port and router_rule and entrypoint:
         try:
             domain_part = router_rule.split("Host(`")[1].split("`)")[0]
-            return IngressConfig(domain=f"{entrypoint}{domain_part}", port=port)
+
+            if domain in domain_part:
+                return IngressConfig(domain=f"{entrypoint}{domain_part}", port=port)
         except Exception as e:
             logger.error(f"Failed to parse ingress from labels: {e}")
             pass
