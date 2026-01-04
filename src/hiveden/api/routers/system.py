@@ -18,7 +18,8 @@ from hiveden.api.dtos import (
     DomainUpdateRequest, 
     DomainUpdateResponse, 
     IngressContainerInfo,
-    DNSConfigResponse
+    DNSConfigResponse,
+    DNSUpdateRequest
 )
 from hiveden.explorer.models import FilesystemLocation
 from hiveden.docker.models import IngressConfig
@@ -96,16 +97,24 @@ def get_dns_config():
     module_repo = ModuleRepository(db_manager)
     config_repo = ConfigRepository(db_manager)
     
-    # 1. Get Domain from DB
+    # 1. Get Domain and API Key from DB
     dns_domain = None
+    api_key = None
     try:
         core_module = module_repo.get_by_short_name('core')
         if core_module:
-            cfg = config_repo.get_by_module_and_key(core_module.id, 'dns.domain')
-            if cfg:
-                dns_domain = cfg['value']
+            # Get domain
+            cfg_domain = config_repo.get_by_module_and_key(core_module.id, 'dns.domain')
+            if cfg_domain:
+                dns_domain = cfg_domain['value']
+            
+            # Get API Key
+            cfg_key = config_repo.get_by_module_and_key(core_module.id, 'dns.api_key')
+            if cfg_key:
+                api_key = cfg_key['value']
+                
     except Exception as e:
-        logger.warning(f"Failed to fetch DNS domain from DB: {e}")
+        logger.warning(f"Failed to fetch DNS config from DB: {e}")
 
     # 2. Check for Pi-hole Container
     docker_manager = DockerManager()
@@ -124,8 +133,24 @@ def get_dns_config():
     return DNSConfigResponse(
         enabled=pihole_enabled,
         domain=dns_domain,
-        container_id=container_id
+        container_id=container_id,
+        api_key=api_key
     )
+
+@router.put("/dns", response_model=SuccessResponse)
+def update_dns_config(req: DNSUpdateRequest):
+    """
+    Update DNS API key.
+    """
+    db_manager = get_db_manager()
+    config_repo = ConfigRepository(db_manager)
+    
+    try:
+        config_repo.set_value('core', 'dns.api_key', req.api_key)
+        return SuccessResponse(message="DNS configuration updated successfully.")
+    except Exception as e:
+        logger.error(f"Failed to update DNS config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/domain", response_model=DomainUpdateResponse)
 def update_system_domain(req: DomainUpdateRequest):

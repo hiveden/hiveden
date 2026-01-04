@@ -115,9 +115,26 @@ class DockerManager:
                 system_domain = get_system_domain_value()
                 pihole_host = f"http://dns.{system_domain}"
                 
+                # Fetch API Key from DB
+                from hiveden.db.session import get_db_manager
+                from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
+                
+                pihole_password = app_config.pihole_password
+                try:
+                    db_manager = get_db_manager()
+                    module_repo = ModuleRepository(db_manager)
+                    config_repo = ConfigRepository(db_manager)
+                    core_module = module_repo.get_by_short_name('core')
+                    if core_module:
+                        cfg_key = config_repo.get_by_module_and_key(core_module.id, 'dns.api_key')
+                        if cfg_key and cfg_key['value']:
+                            pihole_password = cfg_key['value']
+                except Exception as ex:
+                    print(f"Failed to fetch DNS API key from DB, using default: {ex}")
+
                 # We assume standard port 80/443 or routed via Traefik
                 # Try to use this host
-                pihole_manager = PiHoleManager(pihole_host, app_config.pihole_password)
+                pihole_manager = PiHoleManager(pihole_host, pihole_password)
                 target_ip = ingress_config.host_ip or get_host_ip()
                 pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
             except Exception as e:

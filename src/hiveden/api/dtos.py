@@ -150,6 +150,10 @@ class DNSConfigResponse(BaseResponse):
     enabled: bool
     domain: Optional[str] = None
     container_id: Optional[str] = None
+    api_key: Optional[str] = None
+
+class DNSUpdateRequest(BaseModel):
+    api_key: str
 
 class DataResponse(BaseResponse):
     data: Optional[Union[
