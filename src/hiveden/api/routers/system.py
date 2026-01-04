@@ -10,13 +10,15 @@ from hiveden.db.repositories.locations import LocationRepository
 from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
 from hiveden.docker.containers import DockerManager
 from hiveden.config.settings import config
+from hiveden.config.utils.domain import get_system_domain_value
 from hiveden.api.dtos import (
     SuccessResponse, 
     LocationListResponse, 
     DomainInfoResponse, 
     DomainUpdateRequest, 
     DomainUpdateResponse, 
-    IngressContainerInfo
+    IngressContainerInfo,
+    DNSConfigResponse
 )
 from hiveden.explorer.models import FilesystemLocation
 from hiveden.docker.models import IngressConfig
@@ -26,25 +28,6 @@ logger = logging.getLogger(__name__)
 
 class UpdateLocationRequest(BaseModel):
     new_path: str
-
-def get_system_domain_value() -> str:
-    """Get the effective system domain (DB > Env)."""
-    db_manager = get_db_manager()
-    module_repo = ModuleRepository(db_manager)
-    config_repo = ConfigRepository(db_manager)
-    
-    # Try DB
-    try:
-        core_module = module_repo.get_by_short_name('core')
-        if core_module:
-            cfg = config_repo.get_by_module_and_key(core_module.id, 'domain')
-            if cfg:
-                return cfg['value']
-    except Exception as e:
-        logger.warning(f"Failed to fetch domain from DB: {e}")
-        
-    # Fallback
-    return config.domain
 
 def parse_ingress_from_labels(domain: str, labels: dict) -> Optional[IngressConfig]:
     """Reconstruct IngressConfig from Traefik labels."""
@@ -103,6 +86,46 @@ def get_system_domain():
             ))
             
     return DomainInfoResponse(domain=domain, containers=ingress_list)
+
+@router.get("/dns", response_model=DNSConfigResponse)
+def get_dns_config():
+    """
+    Get DNS configuration and Pi-hole status.
+    """
+    db_manager = get_db_manager()
+    module_repo = ModuleRepository(db_manager)
+    config_repo = ConfigRepository(db_manager)
+    
+    # 1. Get Domain from DB
+    dns_domain = None
+    try:
+        core_module = module_repo.get_by_short_name('core')
+        if core_module:
+            cfg = config_repo.get_by_module_and_key(core_module.id, 'dns.domain')
+            if cfg:
+                dns_domain = cfg['value']
+    except Exception as e:
+        logger.warning(f"Failed to fetch DNS domain from DB: {e}")
+
+    # 2. Check for Pi-hole Container
+    docker_manager = DockerManager()
+    containers = docker_manager.list_containers(all=False) # Only running containers
+    
+    pihole_enabled = False
+    container_id = None
+    
+    for c in containers:
+        # Check image name for 'pihole'
+        if c.Image and "pihole" in c.Image.lower():
+            pihole_enabled = True
+            container_id = c.Id
+            break
+            
+    return DNSConfigResponse(
+        enabled=pihole_enabled,
+        domain=dns_domain,
+        container_id=container_id
+    )
 
 @router.put("/domain", response_model=DomainUpdateResponse)
 def update_system_domain(req: DomainUpdateRequest):

@@ -146,6 +146,10 @@ class FileUploadResponse(BaseResponse):
     relative_path: str
     absolute_path: str
 
+class DNSConfigResponse(BaseResponse):
+    enabled: bool
+    domain: Optional[str] = None
+    container_id: Optional[str] = None
 
 class DataResponse(BaseResponse):
     data: Optional[Union[

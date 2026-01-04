@@ -4,7 +4,6 @@ import urllib.request
 import urllib.error
 from typing import List, Optional, Union
 
-from hiveden.config import config
 
 class TraefikClient:
     def __init__(self, api_url: str = "http://traefik:8080"):
@@ -87,10 +86,13 @@ def generate_traefik_labels(domain: str, port: int) -> dict:
     Returns:
         dict: A dictionary of Docker labels.
     """
+    from hiveden.config.utils.domain import get_system_domain_value
+    system_domain = get_system_domain_value()
+    
     if "." in domain:
         full_domain = domain
     else:
-        full_domain = f"{domain}.{config.domain}"
+        full_domain = f"{domain}.{system_domain}"
     
     # Sanitize domain for use as router/service name
     router_name = full_domain.split(".")[0].replace(".", "-")

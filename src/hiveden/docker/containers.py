@@ -10,6 +10,7 @@ from hiveden.docker.networks import create_network, network_exists
 from hiveden.apps.traefik import generate_traefik_labels, TraefikClient
 from hiveden.apps.pihole import PiHoleManager
 from hiveden.hwosinfo.hw import get_host_ip
+from hiveden.config.utils.domain import get_system_domain_value
 
 client = docker.from_env()
 
@@ -107,15 +108,20 @@ class DockerManager:
                 ports = [p for p in ports if p.container_port != ingress_config.port]
 
             traefik_client = TraefikClient("http://localhost:8080")
-            pihole_ip = traefik_client.get_service_ip("pihole")
-            pihole_domains = traefik_client.find_domains_for_router("pihole")
-            if len(pihole_domains) > 0 and len(pihole_ip) > 0:
-                try:
-                    pihole_manager = PiHoleManager(pihole_domains[0], app_config.pihole_password)
-                    target_ip = ingress_config.host_ip or get_host_ip()
-                    pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
-                except Exception as e:
-                    print(f"Failed to add ingress domain {ingress_config.domain} to pihole: {e}")
+            
+            # Construct PiHole URL based on system domain
+            # "The pihole subdomain is 'dns'"
+            try:
+                system_domain = get_system_domain_value()
+                pihole_host = f"http://dns.{system_domain}"
+                
+                # We assume standard port 80/443 or routed via Traefik
+                # Try to use this host
+                pihole_manager = PiHoleManager(pihole_host, app_config.pihole_password)
+                target_ip = ingress_config.host_ip or get_host_ip()
+                pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
+            except Exception as e:
+                print(f"Failed to add ingress domain {ingress_config.domain} to pihole: {e}")
 
         container_labels["managed-by"] = "hiveden"
         kwargs["labels"] = container_labels
@@ -189,6 +195,26 @@ class DockerManager:
         network.connect(container)
         container.start()
         print(f"Container '{container_name}' started.")
+
+        # Update core.dns.type if this is a DNS container
+        try:
+            target_dns_type = None
+            image_lower = image.lower()
+            for dns_type in ["pihole", "adguard"]:
+                if dns_type in image_lower:
+                    target_dns_type = dns_type
+                    break
+            
+            if target_dns_type:
+                from hiveden.db.session import get_db_manager
+                from hiveden.db.repositories.core import ConfigRepository
+                
+                db_manager = get_db_manager()
+                config_repo = ConfigRepository(db_manager)
+                config_repo.set_value('core', 'dns.type', target_dns_type)
+                print(f"Updated core.dns.type to {target_dns_type}")
+        except Exception as e:
+            print(f"Failed to update DNS config: {e}")
 
         return container
 
@@ -420,7 +446,7 @@ class DockerManager:
 
                 if source == effective_app_dir or source.startswith(os.path.join(effective_app_dir, "")):
                     is_app_dir = True
-                    source = os.path.relpath(source, effective_app_dir)
+                    source = os.path.relpath(source, f"{effective_app_dir}/{c.name}")
 
                 mounts.append({'source': source, 'target': target, 'is_app_directory': is_app_dir, 'read_only': read_only})
 
