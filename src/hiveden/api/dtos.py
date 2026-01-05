@@ -16,6 +16,7 @@ from hiveden.shares.models import (
 from hiveden.lxc.models import LXCContainer
 from hiveden.hwosinfo.models import OSInfo, HWInfo, SystemDevices
 from hiveden.explorer.models import FilesystemLocation
+from hiveden.systemd.models import SystemdServiceStatus
 
 
 class ConfigResponse(BaseModel):
@@ -192,6 +193,8 @@ class DataResponse(BaseResponse):
         Dict[str, Any],
         DomainInfoResponse, # Added
         DomainUpdateResponse, # Added
-        FileUploadResponse # Added
+        DNSConfigResponse, # Added
+        SystemdServiceStatus, # Added
+        List[SystemdServiceStatus] # Added
     ]] = None
 

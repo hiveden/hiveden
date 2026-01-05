@@ -16,6 +16,7 @@ BuildRequires:  python3-build
 Requires:       systemd
 Requires:       python3-psycopg2
 Requires:       lshw
+Requires:       samba
 
 %description
 A CLI tool and REST API for managing your personal server.

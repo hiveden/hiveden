@@ -14,6 +14,7 @@ from hiveden.api.routers import (
     shell,
     storage,
     system,
+    systemd, # Added
 )
 from hiveden.db.session import get_db_manager
 
@@ -47,3 +48,4 @@ app.include_router(pkgs.router)
 app.include_router(storage.router)
 app.include_router(explorer.router)
 app.include_router(system.router)
+app.include_router(systemd.router) # Added

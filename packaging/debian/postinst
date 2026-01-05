@@ -5,6 +5,9 @@ if ! id -u hiveden >/dev/null 2>&1; then
     useradd -r -s /usr/sbin/nologin -d /opt/hiveden -c "Hiveden Service User" hiveden
 fi
 
+# Ensure application directory exists
+mkdir -p /opt/hiveden
+
 # Set ownership of application directory
 chown -R hiveden:hiveden /opt/hiveden
 chmod 750 /opt/hiveden
