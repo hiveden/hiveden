@@ -1,5 +1,6 @@
 from . import (
     config,
+    database,
     docker,
     explorer,
     info,

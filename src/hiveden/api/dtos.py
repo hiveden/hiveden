@@ -2,20 +2,23 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from hiveden.docker.models import Container as DockerContainer, Network as DockerNetwork, DockerContainer as ContainerConfig, ContainerCreate
-from hiveden.pkgs.models import PackageStatus
-from hiveden.storage.models import Disk, DiskDetail, StorageStrategy
-from hiveden.shares.models import (
-    SMBShare,
-    ZFSPool,
-    ZFSDataset,
-    BtrfsVolume,
-    BtrfsSubvolume,
-    BtrfsShare
-)
-from hiveden.lxc.models import LXCContainer
-from hiveden.hwosinfo.models import OSInfo, HWInfo, SystemDevices
+from hiveden.docker.models import Container as DockerContainer
+from hiveden.docker.models import ContainerCreate
+from hiveden.docker.models import DockerContainer as ContainerConfig
+from hiveden.docker.models import Network as DockerNetwork
 from hiveden.explorer.models import FilesystemLocation
+from hiveden.hwosinfo.models import HWInfo, OSInfo, SystemDevices
+from hiveden.lxc.models import LXCContainer
+from hiveden.pkgs.models import PackageStatus
+from hiveden.shares.models import (
+    BtrfsShare,
+    BtrfsSubvolume,
+    BtrfsVolume,
+    SMBShare,
+    ZFSDataset,
+    ZFSPool,
+)
+from hiveden.storage.models import Disk, DiskDetail, StorageStrategy
 from hiveden.systemd.models import SystemdServiceStatus
 
 
@@ -162,6 +165,28 @@ class SystemdServiceResponse(BaseResponse):
 class SystemdServiceListResponse(BaseResponse):
     data: List[SystemdServiceStatus]
 
+class DatabaseInfo(BaseModel):
+    name: str
+    owner: str
+    encoding: str
+    size_bytes: int
+
+class DatabaseUser(BaseModel):
+    name: str
+    is_superuser: bool
+    can_create_role: bool
+    can_create_db: bool
+
+class DatabaseCreateRequest(BaseModel):
+    name: str
+    owner: Optional[str] = None
+
+class DatabaseListResponse(BaseResponse):
+    data: List[DatabaseInfo]
+
+class DatabaseUserListResponse(BaseResponse):
+    data: List[DatabaseUser]
+
 class DataResponse(BaseResponse):
     data: Optional[Union[
         DockerContainer,
@@ -201,4 +226,3 @@ class DataResponse(BaseResponse):
         DomainUpdateResponse,
         DNSConfigResponse
     ]] = None
-

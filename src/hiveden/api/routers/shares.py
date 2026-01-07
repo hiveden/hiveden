@@ -4,6 +4,8 @@ import traceback
 
 from hiveden.api.dtos import DataResponse, SuccessResponse, ZFSDatasetCreate, ZFSPoolCreate
 from hiveden.shares.models import ZFSPool, ZFSDataset, BtrfsVolume, BtrfsShare
+from hiveden.api.dtos import SMBShareCreate
+from hiveden.api.dtos import CreateBtrfsShareRequest, BtrfsVolumeListResponse, BtrfsShareListResponse
 
 router = APIRouter(prefix="/shares", tags=["Shares"])
 
@@ -84,8 +86,6 @@ def list_available_devices_endpoint():
         logger.error(f"Error listing available ZFS devices: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-from hiveden.api.dtos import SMBShareCreate
-
 @router.get("/smb", response_model=DataResponse)
 def list_smb_shares_endpoint():
     from hiveden.shares.smb import SMBManager
@@ -104,7 +104,7 @@ def create_smb_share_endpoint(share: SMBShareCreate):
         manager.create_share(
             name=share.name,
             path=share.path,
-            comment=share.comment,
+            comment=share.comment or "",
             readonly=share.read_only,
             browsable=share.browsable,
             guest_ok=share.guest_ok
@@ -124,9 +124,6 @@ def destroy_smb_share_endpoint(name: str):
     except Exception as e:
         logger.error(f"Error destroying SMB share: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-from hiveden.api.dtos import CreateBtrfsShareRequest, BtrfsVolumeListResponse, BtrfsShareListResponse
 
 @router.get("/btrfs/volumes", response_model=BtrfsVolumeListResponse)
 def list_btrfs_volumes_endpoint():

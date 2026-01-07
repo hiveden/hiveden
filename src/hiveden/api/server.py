@@ -14,7 +14,8 @@ from hiveden.api.routers import (
     shell,
     storage,
     system,
-    systemd, # Added
+    systemd,
+    database,
 )
 from hiveden.db.session import get_db_manager
 
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(config.router)
+app.include_router(database.router)
 app.include_router(docker.router)
 app.include_router(info.router)
 app.include_router(lxc.router)
