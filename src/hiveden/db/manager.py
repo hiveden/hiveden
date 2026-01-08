@@ -41,22 +41,50 @@ class DatabaseManager:
         """Initialize the database by running migrations."""
         self.run_migrations()
 
-    def create_database(self, db_name: str, owner: str|None = None):
+    def create_database(self, db_name: str, owner: str = None):
         """Create a new database."""
         conn = self._get_admin_connection()
         try:
             cursor = conn.cursor()
-
+            
             # Sanitize inputs strictly or use sql.Identifier (best practice)
             # Since we are using psycopg2, we should use its composable sql building
             from psycopg2 import sql
-
+            
             query = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
-
+            
             if owner:
                 query = query + sql.SQL(" OWNER {}").format(sql.Identifier(owner))
-
+                
             cursor.execute(query)
+        finally:
+            conn.close()
+
+    def delete_database(self, db_name: str):
+        """Delete a database, terminating connections first."""
+        if db_name in ['postgres', 'hiveden']:
+            raise ValueError(f"Cannot delete system database '{db_name}'.")
+
+        conn = self._get_admin_connection()
+        try:
+            cursor = conn.cursor()
+            from psycopg2 import sql
+
+            # Terminate connections
+            # PostgreSQL < 13 uses pg_terminate_backend(pid)
+            # We query pg_stat_activity to find pids connected to the target DB
+            terminate_query = sql.SQL("""
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = {}
+                AND pid <> pg_backend_pid()
+            """).format(sql.Literal(db_name))
+            
+            cursor.execute(terminate_query)
+            
+            # Drop Database
+            drop_query = sql.SQL("DROP DATABASE {}").format(sql.Identifier(db_name))
+            cursor.execute(drop_query)
         finally:
             conn.close()
 

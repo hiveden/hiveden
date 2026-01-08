@@ -1,14 +1,15 @@
 import traceback
+
 from fastapi import APIRouter, HTTPException
 from fastapi.logger import logger
 
-from hiveden.db.session import get_db_manager
 from hiveden.api.dtos import (
-    SuccessResponse, 
-    DatabaseListResponse, 
-    DatabaseUserListResponse, 
-    DatabaseCreateRequest
+    DatabaseCreateRequest,
+    DatabaseListResponse,
+    DatabaseUserListResponse,
+    SuccessResponse,
 )
+from hiveden.db.session import get_db_manager
 
 router = APIRouter(prefix="/db", tags=["Database"])
 
@@ -32,6 +33,19 @@ def create_database(req: DatabaseCreateRequest):
         return SuccessResponse(message=f"Database '{req.name}' created successfully.")
     except Exception as e:
         logger.error(f"Error creating database {req.name}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/databases/{db_name}", response_model=SuccessResponse)
+def delete_database(db_name: str):
+    """Delete a database."""
+    try:
+        manager = get_db_manager()
+        manager.delete_database(db_name)
+        return SuccessResponse(message=f"Database '{db_name}' deleted successfully.")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error deleting database {db_name}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/users", response_model=DatabaseUserListResponse)
