@@ -216,10 +216,14 @@ def update_container_configuration(container_id: str, container: ContainerCreate
 
 
 @router.delete("/containers/{container_id}", response_model=SuccessResponse, responses={400: {"model": ErrorResponse, "description": "Bad Request: Container is running or other client-side error."}})
-def remove_one_container(container_id: str):
+def remove_one_container(
+    container_id: str,
+    delete_database: bool = Query(False, description="Delete the associated database if it exists."),
+    delete_volumes: bool = Query(False, description="Delete the container's application directory.")
+):
     from hiveden.docker.containers import remove_container
     try:
-        remove_container(container_id)
+        remove_container(container_id, delete_database=delete_database, delete_volumes=delete_volumes)
         return SuccessResponse(message=f"Container {container_id} removed.")
     except ValueError as e:
         logger.warning(f"Attempt to remove running container {container_id}: {e}")

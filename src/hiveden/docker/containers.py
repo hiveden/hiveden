@@ -354,15 +354,61 @@ class DockerManager:
         # Return the Pydantic model for the response
         return self.get_container(container_id)
 
-    def remove_container(self, container_id):
+    def remove_container(self, container_id, delete_database=False, delete_volumes=False):
         """Remove a Docker container."""
         container = self.client.containers.get(container_id)
 
         if container.status == 'running':
             raise ValueError(f"Container '{container.name}' is currently running. Please stop it before removal.")
 
+        # Capture info for cleanup
+        container_name = container.name.lstrip('/')
+        labels = container.labels
+        
         container_model = self.get_container(container_id)
         container.remove()
+        
+        # Cleanup Volumes (App Directory)
+        if delete_volumes:
+            try:
+                import shutil
+                app_dir = self.ensure_app_directory(container_name)
+                # ensure_app_directory creates it if missing, but we want to delete it.
+                # If it exists, remove it.
+                if os.path.exists(app_dir):
+                    shutil.rmtree(app_dir)
+                    print(f"Deleted app directory: {app_dir}")
+            except Exception as e:
+                print(f"Error deleting app directory for {container_name}: {e}")
+
+        # Cleanup Database
+        if delete_database:
+            try:
+                from hiveden.db.session import get_db_manager
+                db_manager = get_db_manager()
+                
+                # Infer DB Name
+                db_name = labels.get("hiveden.database.name")
+                if not db_name:
+                    db_name = container_name
+                
+                # Check if DB exists
+                # list_databases returns list of RealDictRow(name=..., ...)
+                databases = db_manager.list_databases()
+                exists = any(db['name'] == db_name for db in databases)
+                
+                if exists:
+                    try:
+                        db_manager.delete_database(db_name)
+                        print(f"Deleted database: {db_name}")
+                    except ValueError as ve:
+                        print(f"Skipped deleting protected database {db_name}: {ve}")
+                else:
+                    print(f"Database {db_name} not found, skipping deletion.")
+                    
+            except Exception as e:
+                print(f"Error deleting database for {container_name}: {e}")
+
         return container_model
 
     def delete_containers(self, containers):
@@ -547,8 +593,8 @@ def restart_container(container_id):
 def stop_container(container_id):
     return DockerManager().stop_container(container_id)
 
-def remove_container(container_id):
-    return DockerManager().remove_container(container_id)
+def remove_container(container_id, delete_database=False, delete_volumes=False):
+    return DockerManager().remove_container(container_id, delete_database, delete_volumes)
 
 def delete_containers(containers):
     return DockerManager().delete_containers(containers)
