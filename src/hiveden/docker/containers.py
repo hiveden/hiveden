@@ -3,14 +3,14 @@ import os
 import docker
 from docker import errors
 
-from hiveden.config import config as app_config
-from hiveden.docker.images import image_exists, pull_image
-from hiveden.docker.models import Container
-from hiveden.docker.networks import create_network, network_exists
-from hiveden.apps.traefik import generate_traefik_labels, TraefikClient
 from hiveden.apps.pihole import PiHoleManager
-from hiveden.hwosinfo.hw import get_host_ip
+from hiveden.apps.traefik import generate_traefik_labels
+from hiveden.config import config as app_config
 from hiveden.config.utils.domain import get_system_domain_value
+from hiveden.docker.images import image_exists, pull_image
+from hiveden.docker.models import Container, Device, EnvVar, IngressConfig, Mount, Port
+from hiveden.docker.networks import create_network, network_exists
+from hiveden.hwosinfo.hw import get_host_ip
 
 client = docker.from_env()
 
@@ -24,8 +24,8 @@ class DockerManager:
         """Resolve the effective application directory, preferring DB configuration."""
         app_root = app_config.app_directory
         try:
-            from hiveden.db.session import get_db_manager
             from hiveden.db.repositories.locations import LocationRepository
+            from hiveden.db.session import get_db_manager
 
             db_manager = get_db_manager()
             repo = LocationRepository(db_manager)
@@ -64,17 +64,18 @@ class DockerManager:
 
     def create_container(
         self,
-        image,
-        command=None,
+        name: str,
+        image: str,
+        command: list[str]|None=None,
         network_name=None,
-        env=None,
-        ports=None,
-        mounts=None,
-        devices=None,
-        labels=None,
-        ingress_config=None,
+        env: list[EnvVar]|None=None,
+        ports: list[Port]|None=None,
+        mounts: list[Mount]|None=None,
+        devices:list[Device]|None=None,
+        labels: dict[str, str]|None=None,
+        ingress_config: IngressConfig|None=None,
         app_directory=None,
-        privileged=False,
+        privileged: bool|None=False,
         **kwargs,
     ):
         """Create a new Docker container and connect it to the hiveden network."""
@@ -107,8 +108,6 @@ class DockerManager:
             if ports:
                 ports = [p for p in ports if p.container_port != ingress_config.port]
 
-            traefik_client = TraefikClient("http://localhost:8080")
-
             # Construct PiHole URL based on system domain
             # "The pihole subdomain is 'dns'"
             try:
@@ -116,8 +115,11 @@ class DockerManager:
                 pihole_host = f"http://dns.{system_domain}"
 
                 # Fetch API Key from DB
+                from hiveden.db.repositories.core import (
+                    ConfigRepository,
+                    ModuleRepository,
+                )
                 from hiveden.db.session import get_db_manager
-                from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
 
                 pihole_password = app_config.pihole_password
                 try:
@@ -135,7 +137,7 @@ class DockerManager:
                 # We assume standard port 80/443 or routed via Traefik
                 # Try to use this host
                 pihole_manager = PiHoleManager(pihole_host, pihole_password)
-                target_ip = ingress_config.host_ip or get_host_ip()
+                target_ip = get_host_ip()
                 pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
             except Exception as e:
                 print(f"Failed to add ingress domain {ingress_config.domain} to pihole: {e}")
@@ -153,7 +155,7 @@ class DockerManager:
             for port in ports:
                 port_bindings[f"{port.container_port}/{port.protocol}"] = port.host_port
 
-        container_name = kwargs.get("name", "")
+        container_name = name
         volumes = {}
         if mounts:
             for mount in mounts:
@@ -204,6 +206,7 @@ class DockerManager:
                 devices=device_requests,
                 restart_policy={"Name": "always"},
                 privileged=privileged,
+                name=container_name,
                 **kwargs,
             )
             print(f"Container '{container_name}' created.")
@@ -223,8 +226,8 @@ class DockerManager:
                     break
 
             if target_dns_type:
-                from hiveden.db.session import get_db_manager
                 from hiveden.db.repositories.core import ConfigRepository
+                from hiveden.db.session import get_db_manager
 
                 db_manager = get_db_manager()
                 config_repo = ConfigRepository(db_manager)
@@ -385,11 +388,14 @@ class DockerManager:
 
                 if domain:
                     # Setup PiHole Manager similar to create_container
-                    from hiveden.config.utils.domain import get_system_domain_value
                     from hiveden.apps.pihole import PiHoleManager
-                    from hiveden.db.session import get_db_manager
-                    from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
                     from hiveden.config import config as app_config
+                    from hiveden.config.utils.domain import get_system_domain_value
+                    from hiveden.db.repositories.core import (
+                        ConfigRepository,
+                        ModuleRepository,
+                    )
+                    from hiveden.db.session import get_db_manager
                     from hiveden.hwosinfo.hw import get_host_ip
 
                     system_domain = get_system_domain_value()
@@ -628,8 +634,8 @@ class DockerManager:
 
 
 # Wrappers for backward compatibility
-def create_container(*args, **kwargs):
-    return DockerManager().create_container(*args, **kwargs)
+def create_container(name: str, image: str, command: list[str]|None, env: list[EnvVar]|None, ports: list[Port]|None, mounts: list[Mount]|None, devices: list[Device]|None, labels: dict[str, str]|None, ingress_config: IngressConfig|None, privileged: bool|None, *args, **kwargs):
+    return DockerManager().create_container(name=name, image=image, command=command, env=env, ports=ports, mounts=mounts, devices=devices, labels=labels, ingress_config=ingress_config, privileged=privileged, **kwargs)
 
 def get_container(container_id):
     return DockerManager().get_container(container_id)
