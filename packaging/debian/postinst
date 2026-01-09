@@ -13,4 +13,10 @@ chown -R hiveden:hiveden /opt/hiveden
 chmod 750 /opt/hiveden
 
 # Install all Python dependencies via pip
-pip3 install --no-warn-script-location click fastapi uvicorn docker PyYAML psutil lxc paramiko websockets pihole6api yoyo-migrations python-multipart 2>/dev/null || true
+# Use --break-system-packages as we are intentionally installing into the system environment for this appliance
+if command -v pip3 >/dev/null 2>&1; then
+    pip3 install --break-system-packages --no-warn-script-location click fastapi uvicorn docker PyYAML psutil lxc paramiko websockets pihole6api yoyo-migrations python-multipart psycopg2 || \
+    pip3 install --no-warn-script-location click fastapi uvicorn docker PyYAML psutil lxc paramiko websockets pihole6api yoyo-migrations python-multipart psycopg2 || true
+else
+    echo "pip3 not found, skipping Python dependency installation via pip"
+fi

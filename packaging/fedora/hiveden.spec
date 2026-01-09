@@ -17,6 +17,7 @@ Requires:       systemd
 Requires:       python3-psycopg2
 Requires:       lshw
 Requires:       samba
+Requires:       python3-pip
 
 %description
 A CLI tool and REST API for managing your personal server.
