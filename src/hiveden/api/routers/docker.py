@@ -219,11 +219,12 @@ def update_container_configuration(container_id: str, container: ContainerCreate
 def remove_one_container(
     container_id: str,
     delete_database: bool = Query(False, description="Delete the associated database if it exists."),
-    delete_volumes: bool = Query(False, description="Delete the container's application directory.")
+    delete_volumes: bool = Query(False, description="Delete the container's application directory."),
+    delete_dns: bool = Query(False, description="Delete associated DNS entry from Pi-hole.")
 ):
     from hiveden.docker.containers import remove_container
     try:
-        remove_container(container_id, delete_database=delete_database, delete_volumes=delete_volumes)
+        remove_container(container_id, delete_database=delete_database, delete_volumes=delete_volumes, delete_dns=delete_dns)
         return SuccessResponse(message=f"Container {container_id} removed.")
     except ValueError as e:
         logger.warning(f"Attempt to remove running container {container_id}: {e}")

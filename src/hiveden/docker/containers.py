@@ -26,7 +26,7 @@ class DockerManager:
         try:
             from hiveden.db.session import get_db_manager
             from hiveden.db.repositories.locations import LocationRepository
-            
+
             db_manager = get_db_manager()
             repo = LocationRepository(db_manager)
             apps_location = repo.get_by_key('apps')
@@ -97,28 +97,28 @@ class DockerManager:
         container_labels = kwargs.get("labels", {})
         if labels:
             container_labels.update(labels)
-        
+
         if ingress_config:
             # Handle Ingress Configuration
             traefik_labels = generate_traefik_labels(ingress_config.domain, ingress_config.port)
             container_labels.update(traefik_labels)
-            
+
             # Filter ports: Remove the port that is being managed by ingress
             if ports:
                 ports = [p for p in ports if p.container_port != ingress_config.port]
 
             traefik_client = TraefikClient("http://localhost:8080")
-            
+
             # Construct PiHole URL based on system domain
             # "The pihole subdomain is 'dns'"
             try:
                 system_domain = get_system_domain_value()
                 pihole_host = f"http://dns.{system_domain}"
-                
+
                 # Fetch API Key from DB
                 from hiveden.db.session import get_db_manager
                 from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
-                
+
                 pihole_password = app_config.pihole_password
                 try:
                     db_manager = get_db_manager()
@@ -221,11 +221,11 @@ class DockerManager:
                 if dns_type in image_lower:
                     target_dns_type = dns_type
                     break
-            
+
             if target_dns_type:
                 from hiveden.db.session import get_db_manager
                 from hiveden.db.repositories.core import ConfigRepository
-                
+
                 db_manager = get_db_manager()
                 config_repo = ConfigRepository(db_manager)
                 config_repo.set_value('core', 'dns.type', target_dns_type)
@@ -354,7 +354,7 @@ class DockerManager:
         # Return the Pydantic model for the response
         return self.get_container(container_id)
 
-    def remove_container(self, container_id, delete_database=False, delete_volumes=False):
+    def remove_container(self, container_id, delete_database=False, delete_volumes=False, delete_dns=False):
         """Remove a Docker container."""
         container = self.client.containers.get(container_id)
 
@@ -364,17 +364,73 @@ class DockerManager:
         # Capture info for cleanup
         container_name = container.name.lstrip('/')
         labels = container.labels
-        
+
+        # Cleanup DNS Entry (Before removal if we need IP, but usually we need domain from labels)
+        if delete_dns:
+            try:
+                # Find Traefik Host Rule
+                domain = None
+                for k, v in labels.items():
+                    if "traefik.http.routers." in k and ".rule" in k and v.startswith("Host("):
+                        # Extract domain from Host(`example.com`) or Host('example.com')
+                        try:
+                            # Split by backtick or single quote
+                            if "`" in v:
+                                domain = v.split("`")[1]
+                            elif "'" in v:
+                                domain = v.split("'")[1]
+                            break
+                        except IndexError:
+                            pass
+
+                if domain:
+                    # Setup PiHole Manager similar to create_container
+                    from hiveden.config.utils.domain import get_system_domain_value
+                    from hiveden.apps.pihole import PiHoleManager
+                    from hiveden.db.session import get_db_manager
+                    from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
+                    from hiveden.config import config as app_config
+                    from hiveden.hwosinfo.hw import get_host_ip
+
+                    system_domain = get_system_domain_value()
+                    pihole_host = f"http://dns.{system_domain}"
+
+                    pihole_password = app_config.pihole_password
+                    try:
+                        db_manager = get_db_manager()
+                        module_repo = ModuleRepository(db_manager)
+                        config_repo = ConfigRepository(db_manager)
+                        core_module = module_repo.get_by_short_name('core')
+                        if core_module:
+                            cfg_key = config_repo.get_by_module_and_key(core_module.id, 'dns.api_key')
+                            if cfg_key and cfg_key['value']:
+                                pihole_password = cfg_key['value']
+                    except Exception as ex:
+                        print(f"Failed to fetch DNS API key from DB, using default: {ex}")
+
+                    pihole_manager = PiHoleManager(pihole_host, pihole_password)
+
+                    # We need the IP to delete the record. Typically host IP for ingress.
+                    target_ip = get_host_ip()
+                    # Alternatively, fetch current A record from Pi-hole if possible, but delete usually requires IP match
+
+                    print(f"Deleting DNS entry: {domain} -> {target_ip}")
+                    pihole_manager.delete_dns_entry(domain, target_ip)
+                else:
+                    print(f"No domain found in labels for container {container_name}, skipping DNS deletion.")
+
+            except Exception as e:
+                print(f"Error deleting DNS entry for {container_name}: {e}")
+
         container_model = self.get_container(container_id)
         container.remove()
-        
+
         # Cleanup Volumes (App Directory)
         if delete_volumes:
             try:
                 import shutil
-                app_dir = self.ensure_app_directory(container_name)
-                # ensure_app_directory creates it if missing, but we want to delete it.
-                # If it exists, remove it.
+                app_root = self._resolve_app_directory()
+                app_dir = f"{app_root}/{container_name}"
                 if os.path.exists(app_dir):
                     shutil.rmtree(app_dir)
                     print(f"Deleted app directory: {app_dir}")
@@ -386,17 +442,17 @@ class DockerManager:
             try:
                 from hiveden.db.session import get_db_manager
                 db_manager = get_db_manager()
-                
+
                 # Infer DB Name
                 db_name = labels.get("hiveden.database.name")
                 if not db_name:
                     db_name = container_name
-                
+
                 # Check if DB exists
                 # list_databases returns list of RealDictRow(name=..., ...)
                 databases = db_manager.list_databases()
                 exists = any(db['name'] == db_name for db in databases)
-                
+
                 if exists:
                     try:
                         db_manager.delete_database(db_name)
@@ -405,7 +461,7 @@ class DockerManager:
                         print(f"Skipped deleting protected database {db_name}: {ve}")
                 else:
                     print(f"Database {db_name} not found, skipping deletion.")
-                    
+
             except Exception as e:
                 print(f"Error deleting database for {container_name}: {e}")
 
@@ -492,14 +548,14 @@ class DockerManager:
         mounts = []
         binds = host_config.get('Binds') or []
         effective_app_dir = self._resolve_app_directory()
-        
+
         for b in binds:
             parts = b.split(':')
             if len(parts) >= 2:
                 source = parts[0]
                 target = parts[1]
                 read_only = False
-                
+
                 if len(parts) >= 3:
                      mode = parts[2]
                      if 'ro' in mode.split(','):
@@ -593,8 +649,8 @@ def restart_container(container_id):
 def stop_container(container_id):
     return DockerManager().stop_container(container_id)
 
-def remove_container(container_id, delete_database=False, delete_volumes=False):
-    return DockerManager().remove_container(container_id, delete_database, delete_volumes)
+def remove_container(container_id, delete_database=False, delete_volumes=False, delete_dns=False):
+    return DockerManager().remove_container(container_id, delete_database, delete_volumes, delete_dns)
 
 def delete_containers(containers):
     return DockerManager().delete_containers(containers)
