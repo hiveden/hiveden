@@ -138,7 +138,7 @@ class DockerManager:
                 # Try to use this host
                 pihole_manager = PiHoleManager(pihole_host, pihole_password)
                 target_ip = get_host_ip()
-                pihole_manager.add_ingress_domain_to_pihole(ingress_config.domain, target_ip)
+                pihole_manager.add_ingress_domain_to_pihole(f"{ingress_config.domain}.{system_domain}", target_ip)
             except Exception as e:
                 print(f"Failed to add ingress domain {ingress_config.domain} to pihole: {e}")
 
