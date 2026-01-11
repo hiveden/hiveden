@@ -17,6 +17,7 @@ Requires:       systemd
 Requires:       python3-psycopg2
 Requires:       lshw
 Requires:       samba
+Requires:       cifs-utils
 Requires:       python3-pip
 
 %description

@@ -68,6 +68,33 @@ class CreateBtrfsShareRequest(BaseModel):
     mount_path: str
 
 
+class MountSMBShareRequest(BaseModel):
+    remote_path: str
+    mount_point: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    options: Optional[List[str]] = None
+    persist: bool = False
+
+
+class UnmountSMBShareRequest(BaseModel):
+    mount_point: str
+    remove_persistence: bool = False
+    force: bool = False
+
+
+class SMBMount(BaseModel):
+    remote_path: str
+    mount_point: str
+    options: str
+    is_persistent: bool
+
+
+class SMBListResponse(BaseResponse):
+    exported: List[SMBShare]
+    mounted: List[SMBMount]
+
+
 class VersionInfo(BaseModel):
     version: str
 

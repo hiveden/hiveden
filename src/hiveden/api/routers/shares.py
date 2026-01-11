@@ -1,13 +1,74 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.logger import logger
+from fastapi.responses import JSONResponse
 import traceback
 
-from hiveden.api.dtos import DataResponse, SuccessResponse, ZFSDatasetCreate, ZFSPoolCreate
+from hiveden.api.dtos import (
+    DataResponse, 
+    SuccessResponse, 
+    ErrorResponse,
+    ZFSDatasetCreate, 
+    ZFSPoolCreate,
+    SMBShareCreate,
+    MountSMBShareRequest,
+    SMBListResponse,
+    SMBMount,
+    CreateBtrfsShareRequest, 
+    BtrfsVolumeListResponse, 
+    BtrfsShareListResponse
+)
 from hiveden.shares.models import ZFSPool, ZFSDataset, BtrfsVolume, BtrfsShare
-from hiveden.api.dtos import SMBShareCreate
-from hiveden.api.dtos import CreateBtrfsShareRequest, BtrfsVolumeListResponse, BtrfsShareListResponse
 
 router = APIRouter(prefix="/shares", tags=["Shares"])
+
+@router.post("/smb/mount", response_model=SuccessResponse)
+def mount_smb_share_endpoint(request: MountSMBShareRequest):
+    """
+    Mount a remote SMB share.
+    """
+    from hiveden.shares.smb import SMBManager
+    try:
+        manager = SMBManager()
+        manager.mount_share(
+            remote_path=request.remote_path,
+            mount_point=request.mount_point,
+            username=request.username,
+            password=request.password,
+            options=request.options,
+            persist=request.persist
+        )
+        return SuccessResponse(message=f"Mounted {request.remote_path} at {request.mount_point}")
+    except Exception as e:
+        logger.error(f"Error mounting SMB share: {e}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500, 
+            content=ErrorResponse(message=str(e)).model_dump()
+        )
+
+@router.delete("/smb/mount", response_model=SuccessResponse)
+def unmount_smb_share_endpoint(
+    mount_point: str, 
+    remove_persistence: bool = False, 
+    force: bool = False
+):
+    """
+    Unmount a remote SMB share.
+    """
+    from hiveden.shares.smb import SMBManager
+    try:
+        manager = SMBManager()
+        manager.unmount_share(
+            mount_point=mount_point,
+            remove_persistence=remove_persistence,
+            force=force
+        )
+        return SuccessResponse(message=f"Unmounted {mount_point}")
+    except Exception as e:
+        logger.error(f"Error unmounting SMB share: {e}\n{traceback.format_exc()}")
+        return JSONResponse(
+            status_code=500, 
+            content=ErrorResponse(message=str(e)).model_dump()
+        )
 
 @router.get("/zfs/pools", response_model=DataResponse)
 def list_zfs_pools_endpoint():
@@ -86,15 +147,24 @@ def list_available_devices_endpoint():
         logger.error(f"Error listing available ZFS devices: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/smb", response_model=DataResponse)
+@router.get("/smb", response_model=SMBListResponse)
 def list_smb_shares_endpoint():
     from hiveden.shares.smb import SMBManager
     try:
         manager = SMBManager()
-        return DataResponse(data=manager.list_shares())
+        
+        exported = manager.list_shares()
+        mounted_data = manager.list_mounted_shares()
+        
+        mounted = [SMBMount(**m) for m in mounted_data]
+        
+        return SMBListResponse(exported=exported, mounted=mounted)
     except Exception as e:
         logger.error(f"Error creating SMB share: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(
+            status_code=500, 
+            content=ErrorResponse(message=str(e)).model_dump()
+        )
 
 @router.post("/smb", response_model=SuccessResponse)
 def create_smb_share_endpoint(share: SMBShareCreate):
