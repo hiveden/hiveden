@@ -57,7 +57,7 @@ class BaseRepository:
             query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders}) RETURNING id"
             
             cursor.execute(query, tuple(data.values()))
-            last_id = cursor.fetchone()[0]
+            last_id = cursor.fetchone()['id']
                 
             conn.commit()
             

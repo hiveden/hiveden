@@ -4,6 +4,7 @@ import traceback
 
 from hiveden.api.dtos import DataResponse, LXCContainerCreate, SuccessResponse
 from hiveden.lxc.models import LXCContainer
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/lxc", tags=["LXC"])
 
@@ -32,6 +33,15 @@ def create_lxc_container_endpoint(container: LXCContainerCreate):
     from hiveden.lxc.containers import create_container
     try:
         c = create_container(**container.dict())
+        
+        LogService().info(
+            actor="user",
+            action="lxc.create",
+            message=f"Created LXC container {c.name}",
+            module="lxc",
+            metadata={"name": c.name, "template": container.template}
+        )
+
         # create_container returns the lxc object, we map it to our model
         # Assuming created container might not have IPs immediately, but let's check attributes
         return DataResponse(data=LXCContainer(
@@ -68,6 +78,15 @@ def start_lxc_container_endpoint(name: str):
     from hiveden.lxc.containers import start_container
     try:
         start_container(name)
+        
+        LogService().info(
+            actor="user",
+            action="lxc.start",
+            message=f"Started LXC container {name}",
+            module="lxc",
+            metadata={"name": name}
+        )
+        
         return SuccessResponse(message=f"Container {name} started.")
     except Exception as e:
         logger.error(f"Error starting LXC container {name}: {e}\n{traceback.format_exc()}")
@@ -78,6 +97,15 @@ def stop_lxc_container_endpoint(name: str):
     from hiveden.lxc.containers import stop_container
     try:
         stop_container(name)
+        
+        LogService().info(
+            actor="user",
+            action="lxc.stop",
+            message=f"Stopped LXC container {name}",
+            module="lxc",
+            metadata={"name": name}
+        )
+        
         return SuccessResponse(message=f"Container {name} stopped.")
     except Exception as e:
         logger.error(f"Error stopping LXC container {name}: {e}\n{traceback.format_exc()}")
@@ -88,6 +116,15 @@ def delete_lxc_container_endpoint(name: str):
     from hiveden.lxc.containers import delete_container
     try:
         delete_container(name)
+        
+        LogService().info(
+            actor="user",
+            action="lxc.delete",
+            message=f"Deleted LXC container {name}",
+            module="lxc",
+            metadata={"name": name}
+        )
+        
         return SuccessResponse(message=f"Container {name} deleted.")
     except Exception as e:
         logger.error(f"Error deleting LXC container {name}: {e}\n{traceback.format_exc()}")

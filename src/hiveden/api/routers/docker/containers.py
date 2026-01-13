@@ -18,6 +18,7 @@ from hiveden.api.dtos import (
     NetworkResponse,
     SuccessResponse,
 )
+from hiveden.services.logs import LogService
 from hiveden.db.session import get_db_manager
 from hiveden.docker.models import ContainerCreate, NetworkCreate
 
@@ -80,7 +81,21 @@ def get_one_container(container_id: str):
 def start_one_container(container_id: str):
     from hiveden.docker.containers import start_container
     try:
-        return ContainerResponse(data=start_container(container_id).dict())
+        container = start_container(container_id)
+        
+        LogService().info(
+            actor="user",
+            action="container.start",
+            message=f"Started container {container.name}",
+            module="docker",
+            metadata={
+                "container_id": container_id,
+                "resource_type": "docker",
+                "redirect_url": f"/docker/containers/{container_id}"
+            }
+        )
+
+        return ContainerResponse(data=container.dict())
     except Exception as e:
         logger.error(f"Error starting container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -90,7 +105,21 @@ def start_one_container(container_id: str):
 def stop_one_container(container_id: str):
     from hiveden.docker.containers import stop_container
     try:
-        return ContainerResponse(data=stop_container(container_id))
+        container = stop_container(container_id)
+        
+        LogService().info(
+            actor="user",
+            action="container.stop",
+            message=f"Stopped container {container.Name}",
+            module="docker",
+            metadata={
+                "container_id": container_id,
+                "resource_type": "docker",
+                "redirect_url": f"/docker/containers/{container_id}"
+            }
+        )
+        
+        return ContainerResponse(data=container)
     except Exception as e:
         logger.error(f"Error stopping container {container_id}: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -141,9 +170,30 @@ def remove_one_container(
     delete_volumes: bool = Query(False, description="Delete the container's application directory."),
     delete_dns: bool = Query(False, description="Delete associated DNS entry from Pi-hole.")
 ):
-    from hiveden.docker.containers import remove_container
+    from hiveden.docker.containers import remove_container, get_container
     try:
+        # Get name for logging
+        try:
+            c_info = get_container(container_id)
+            name = c_info.name
+        except:
+            name = container_id
+
         remove_container(container_id, delete_database=delete_database, delete_volumes=delete_volumes, delete_dns=delete_dns)
+        
+        LogService().info(
+            actor="user",
+            action="container.delete",
+            message=f"Removed container {name}",
+            module="docker",
+            metadata={
+                "container_id": container_id,
+                "resource_type": "docker",
+                "deleted_database": delete_database,
+                "deleted_volumes": delete_volumes
+            }
+        )
+
         return SuccessResponse(message=f"Container {container_id} removed.")
     except ValueError as e:
         logger.warning(f"Attempt to remove running container {container_id}: {e}")

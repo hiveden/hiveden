@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -288,3 +289,16 @@ class DataResponse(BaseResponse):
         DomainUpdateResponse,
         DNSConfigResponse
     ]] = None
+
+class LogEntry(BaseModel):
+    id: int
+    created_at: datetime
+    message: str
+    level: str
+    actor: str
+    action: Optional[str] = None
+    module: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+class LogListResponse(BaseResponse):
+    data: List[LogEntry]

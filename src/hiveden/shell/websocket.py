@@ -10,6 +10,7 @@ import logging
 from hiveden.shell.manager import ShellManager
 from hiveden.shell.models import ShellCommand, ShellSessionCreate
 from hiveden.jobs.manager import JobManager
+from hiveden.services.logs import LogService
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +277,14 @@ class ShellWebSocketHandler:
         await self.connect(websocket)
         
         try:
+            LogService().info(
+                actor="user",
+                action="pkgs.install",
+                message=f"Started installing package {package_name}",
+                module="pkgs",
+                metadata={"package": package_name, "manager": package_manager}
+            )
+
             # Send installation started message
             await websocket.send_json({
                 "type": "install_started",
@@ -289,6 +298,14 @@ class ShellWebSocketHandler:
                     "type": "output",
                     "data": jsonable_encoder(output.dict())
                 })
+
+            LogService().info(
+                actor="user",
+                action="pkgs.install.complete",
+                message=f"Completed installation of package {package_name}",
+                module="pkgs",
+                metadata={"package": package_name}
+            )
             
             # Send installation completed
             await websocket.send_json({
@@ -297,6 +314,14 @@ class ShellWebSocketHandler:
             })
         
         except Exception as e:
+            LogService().error(
+                actor="user",
+                action="pkgs.install.error",
+                message=f"Error installing package {package_name}",
+                module="pkgs",
+                error_details=str(e),
+                metadata={"package": package_name}
+            )
             logger.error(f"Error installing package: {str(e)}")
             await websocket.send_json({
                 "type": "error",

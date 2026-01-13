@@ -8,6 +8,7 @@ from hiveden.api.routers import (
     docker,
     explorer,
     info,
+    logs,
     lxc,
     pkgs,
     shares,
@@ -43,6 +44,7 @@ app.include_router(config.router)
 app.include_router(database.router)
 app.include_router(docker.router)
 app.include_router(info.router)
+app.include_router(logs.router)
 app.include_router(lxc.router)
 app.include_router(shares.router)
 app.include_router(shell.router)

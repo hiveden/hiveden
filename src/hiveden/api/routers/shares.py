@@ -18,6 +18,7 @@ from hiveden.api.dtos import (
     BtrfsShareListResponse
 )
 from hiveden.shares.models import ZFSPool, ZFSDataset, BtrfsVolume, BtrfsShare
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/shares", tags=["Shares"])
 
@@ -37,6 +38,15 @@ def mount_smb_share_endpoint(request: MountSMBShareRequest):
             options=request.options,
             persist=request.persist
         )
+        
+        LogService().info(
+            actor="user",
+            action="smb.mount",
+            message=f"Mounted SMB share {request.remote_path} at {request.mount_point}",
+            module="shares",
+            metadata={"remote": request.remote_path, "mount": request.mount_point}
+        )
+        
         return SuccessResponse(message=f"Mounted {request.remote_path} at {request.mount_point}")
     except Exception as e:
         logger.error(f"Error mounting SMB share: {e}\n{traceback.format_exc()}")
@@ -62,6 +72,15 @@ def unmount_smb_share_endpoint(
             remove_persistence=remove_persistence,
             force=force
         )
+        
+        LogService().info(
+            actor="user",
+            action="smb.unmount",
+            message=f"Unmounted SMB share {mount_point}",
+            module="shares",
+            metadata={"mount": mount_point}
+        )
+        
         return SuccessResponse(message=f"Unmounted {mount_point}")
     except Exception as e:
         logger.error(f"Error unmounting SMB share: {e}\n{traceback.format_exc()}")
@@ -89,6 +108,15 @@ def create_zfs_pool_endpoint(pool: ZFSPoolCreate):
     try:
         manager = ZFSManager()
         manager.create_pool(pool.name, pool.devices)
+        
+        LogService().info(
+            actor="user",
+            action="zfs.pool.create",
+            message=f"Created ZFS pool {pool.name}",
+            module="shares",
+            metadata={"pool": pool.name, "devices": pool.devices}
+        )
+        
         return SuccessResponse(message=f"Pool {pool.name} created.")
     except Exception as e:
         logger.error(f"Error creating ZFS pool: {e}\n{traceback.format_exc()}")
@@ -100,6 +128,15 @@ def destroy_zfs_pool_endpoint(name: str):
     try:
         manager = ZFSManager()
         manager.destroy_pool(name)
+        
+        LogService().info(
+            actor="user",
+            action="zfs.pool.destroy",
+            message=f"Destroyed ZFS pool {name}",
+            module="shares",
+            metadata={"pool": name}
+        )
+        
         return SuccessResponse(message=f"Pool {name} destroyed.")
     except Exception as e:
         logger.error(f"Error destroying ZFS pool: {e}\n{traceback.format_exc()}")
@@ -122,6 +159,15 @@ def create_zfs_dataset_endpoint(dataset: ZFSDatasetCreate):
     try:
         manager = ZFSManager()
         manager.create_dataset(dataset.name)
+        
+        LogService().info(
+            actor="user",
+            action="zfs.dataset.create",
+            message=f"Created ZFS dataset {dataset.name}",
+            module="shares",
+            metadata={"dataset": dataset.name}
+        )
+        
         return SuccessResponse(message=f"Dataset {dataset.name} created.")
     except Exception as e:
         logger.error(f"Error creating ZFS dataset: {e}\n{traceback.format_exc()}")
@@ -133,6 +179,15 @@ def destroy_zfs_dataset_endpoint(name: str):
     try:
         manager = ZFSManager()
         manager.destroy_dataset(name)
+        
+        LogService().info(
+            actor="user",
+            action="zfs.dataset.destroy",
+            message=f"Destroyed ZFS dataset {name}",
+            module="shares",
+            metadata={"dataset": name}
+        )
+        
         return SuccessResponse(message=f"Dataset {name} destroyed.")
     except Exception as e:
         logger.error(f"Error destroying ZFS dataset: {e}\n{traceback.format_exc()}")
@@ -179,6 +234,15 @@ def create_smb_share_endpoint(share: SMBShareCreate):
             browsable=share.browsable,
             guest_ok=share.guest_ok
         )
+        
+        LogService().info(
+            actor="user",
+            action="smb.create",
+            message=f"Created SMB share {share.name}",
+            module="shares",
+            metadata={"name": share.name, "path": share.path}
+        )
+        
         return SuccessResponse(message=f"Share {share.name} created.")
     except Exception as e:
         logger.error(f"Error creating SMB share: {e}\n{traceback.format_exc()}")
@@ -190,6 +254,15 @@ def destroy_smb_share_endpoint(name: str):
     try:
         manager = SMBManager()
         manager.delete_share(name)
+        
+        LogService().info(
+            actor="user",
+            action="smb.delete",
+            message=f"Deleted SMB share {name}",
+            module="shares",
+            metadata={"name": name}
+        )
+        
         return SuccessResponse(message=f"Share {name} deleted.")
     except Exception as e:
         logger.error(f"Error destroying SMB share: {e}\n{traceback.format_exc()}")
@@ -227,6 +300,15 @@ def create_btrfs_share_endpoint(share: CreateBtrfsShareRequest):
             name=share.name,
             mount_path=share.mount_path
         )
+        
+        LogService().info(
+            actor="user",
+            action="btrfs.share.create",
+            message=f"Created BTRFS share {share.name}",
+            module="shares",
+            metadata={"name": share.name, "parent": share.parent_path, "mount": share.mount_path}
+        )
+        
         return SuccessResponse(message=f"Btrfs share {share.name} created and mounted.")
     except ValueError as e:
         logger.error(f"Validation error creating Btrfs share: {e}\n{traceback.format_exc()}")

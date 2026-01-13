@@ -4,6 +4,7 @@ from . import (
     docker,
     explorer,
     info,
+    logs,
     lxc,
     pkgs,
     shares,

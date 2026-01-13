@@ -10,6 +10,7 @@ from hiveden.api.dtos import (
     SuccessResponse,
 )
 from hiveden.db.session import get_db_manager
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/db", tags=["Database"])
 
@@ -30,6 +31,15 @@ def create_database(req: DatabaseCreateRequest):
     try:
         manager = get_db_manager()
         manager.create_database(req.name, req.owner)
+        
+        LogService().info(
+            actor="user",
+            action="database.create",
+            message=f"Created database {req.name}",
+            module="database",
+            metadata={"database": req.name, "owner": req.owner}
+        )
+        
         return SuccessResponse(message=f"Database '{req.name}' created successfully.")
     except Exception as e:
         logger.error(f"Error creating database {req.name}: {e}\n{traceback.format_exc()}")
@@ -41,6 +51,15 @@ def delete_database(db_name: str):
     try:
         manager = get_db_manager()
         manager.delete_database(db_name)
+        
+        LogService().info(
+            actor="user",
+            action="database.delete",
+            message=f"Deleted database {db_name}",
+            module="database",
+            metadata={"database": db_name}
+        )
+        
         return SuccessResponse(message=f"Database '{db_name}' deleted successfully.")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

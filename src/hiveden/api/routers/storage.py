@@ -16,6 +16,7 @@ from hiveden.api.dtos import (
 )
 from hiveden.storage.manager import StorageManager
 from hiveden.storage.models import Disk, StorageStrategy, MountRequest
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/storage", tags=["Storage"])
 manager = StorageManager()
@@ -36,6 +37,15 @@ def add_disk_to_raid(md_device_name: str, request: RaidAddDiskRequest):
         # Assuming md_device_name is like 'md0', we prepend /dev/
         md_device = f"/dev/{md_device_name}"
         job_id = manager.add_disk_to_raid(md_device, request.device_path, request.target_raid_level)
+        
+        LogService().info(
+            actor="user",
+            action="storage.raid.expand",
+            message=f"Initiated RAID expansion for {md_device}",
+            module="storage",
+            metadata={"device": md_device, "added_disk": request.device_path, "raid_level": request.target_raid_level, "job_id": job_id}
+        )
+        
         return StorageStrategyApplyResponse(
             message="RAID expansion initiated successfully",
             data={"job_id": job_id}
@@ -67,6 +77,15 @@ def mount_partition(request: MountRequest):
             automatic=request.automatic,
             mount_name=request.mount_name
         )
+        
+        LogService().info(
+            actor="user",
+            action="storage.mount",
+            message=f"Mounted partition {request.device} at {mount_point}",
+            module="storage",
+            metadata={"device": request.device, "mount_point": mount_point}
+        )
+        
         return SuccessResponse(message=f"Device {request.device} mounted at {mount_point}")
     except ValueError as e:
         return JSONResponse(
@@ -155,6 +174,15 @@ async def apply_strategy(strategy: StorageStrategy):
     """
     try:
         job_id = manager.apply_strategy(strategy)
+        
+        LogService().info(
+            actor="user",
+            action="storage.strategy.apply",
+            message=f"Applying storage strategy: {strategy.name}",
+            module="storage",
+            metadata={"strategy": strategy.name, "job_id": job_id, "type": strategy.type}
+        )
+        
         return StorageStrategyApplyResponse(
             message="Storage configuration started",
             data={"job_id": job_id}

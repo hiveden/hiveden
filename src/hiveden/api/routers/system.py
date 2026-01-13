@@ -24,6 +24,7 @@ from hiveden.api.dtos import (
 )
 from hiveden.explorer.models import FilesystemLocation
 from hiveden.docker.models import IngressConfig
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/system", tags=["System"])
 logger = logging.getLogger(__name__)
@@ -145,6 +146,14 @@ def update_dns_config(req: DNSUpdateRequest):
 
     try:
         config_repo.set_value('core', 'dns.api_key', req.api_key)
+        
+        LogService().info(
+            actor="user",
+            action="system.dns.update",
+            message="Updated DNS API configuration",
+            module="system"
+        )
+        
         return SuccessResponse(message="DNS configuration updated successfully.")
     except Exception as e:
         logger.error(f"Failed to update DNS config: {e}")
@@ -160,6 +169,14 @@ def update_system_domain(req: DomainUpdateRequest):
     db_manager = get_db_manager()
     config_repo = ConfigRepository(db_manager)
     config_repo.set_value('core', 'domain', new_domain)
+
+    LogService().info(
+        actor="user",
+        action="system.domain.update",
+        message=f"Updated system domain to {new_domain}",
+        module="system",
+        metadata={"old_domain": existing_domain, "new_domain": new_domain}
+    )
 
     # 2. Recreate Containers
     docker_manager = DockerManager()
@@ -384,6 +401,14 @@ def update_system_location(key: str, req: UpdateLocationRequest, background_task
 
     # Update DB immediately to reflect intent
     repo.update(location.id, path=new_path)
+    
+    LogService().info(
+        actor="user",
+        action="system.location.update",
+        message=f"Updated system location {key} to {new_path}",
+        module="system",
+        metadata={"key": key, "old_path": old_path, "new_path": new_path, "migrating": req.should_migrate_data}
+    )
 
     msg = f"Path updated to {new_path}."
 

@@ -10,6 +10,7 @@ from hiveden.api.dtos import (
 )
 from hiveden.systemd.manager import SystemdManager
 from hiveden.systemd.models import ServiceActionRequest
+from hiveden.services.logs import LogService
 
 router = APIRouter(prefix="/systemd", tags=["Systemd"])
 logger = logging.getLogger(__name__)
@@ -52,6 +53,15 @@ def manage_service(service_name: str, action: str):
     try:
         manager = SystemdManager()
         status = manager.manage_service(service_name, action)
+        
+        LogService().info(
+            actor="user",
+            action=f"systemd.{action}",
+            message=f"Performed '{action}' on service {service_name}",
+            module="systemd",
+            metadata={"service": service_name, "action": action, "active_state": status.active_state}
+        )
+        
         return SystemdServiceResponse(data=status)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
