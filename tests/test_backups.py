@@ -44,3 +44,45 @@ def test_create_postgres_backup_failure(tmp_path):
         
         with pytest.raises(Exception):
             manager.create_postgres_backup("my_db", str(output_dir))
+
+def test_create_app_data_backup_success(tmp_path):
+    from hiveden.backups.manager import BackupManager
+    import tarfile
+    
+    manager = BackupManager()
+    output_dir = tmp_path / "backups"
+    
+    # Create dummy source data
+    source_dir = tmp_path / "app_data"
+    source_dir.mkdir()
+    (source_dir / "config.yaml").write_text("config")
+    
+    # Mock tarfile.open
+    with patch("tarfile.open") as mock_tar:
+        mock_context = MagicMock()
+        mock_tar.return_value.__enter__.return_value = mock_context
+        
+        backup_file = manager.create_app_data_backup([str(source_dir)], str(output_dir))
+        
+        assert backup_file.startswith(str(output_dir))
+        assert backup_file.endswith(".tar.gz")
+        
+        # Verify tarfile was opened for writing
+        # We need to ensure the arguments match what implementation will use
+        # Just checking call count is often safer if exact path is dynamic
+        assert mock_tar.call_count == 1
+        
+        # Verify files were added
+        mock_context.add.assert_called()
+
+def test_create_app_data_backup_failure(tmp_path):
+    from hiveden.backups.manager import BackupManager
+    manager = BackupManager()
+    output_dir = tmp_path / "backups"
+    source_dir = tmp_path / "app_data"
+    
+    with patch("tarfile.open") as mock_tar:
+        mock_tar.side_effect = Exception("Tar failed")
+        
+        with pytest.raises(Exception):
+            manager.create_app_data_backup([str(source_dir)], str(output_dir))
