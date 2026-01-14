@@ -85,6 +85,12 @@ Here are some examples of what you can do with the Hiveden CLI:
   hiveden pkgs install htop
   ```
 
+- **Get system devices:**
+
+  ```bash
+  hiveden info devices
+  ```
+
 ### REST API
 
 Hiveden also provides a REST API for programmatic access. To run the API server, use the `server` command:
