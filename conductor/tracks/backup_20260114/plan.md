@@ -18,7 +18,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Core Backup Logic' (Protocol in workflow.md) [checkpoint: 7a0313d]
 
 ## Phase 1.5: Advanced Logic & Configuration
-- [ ] Task: Implement Configuration Validation
+- [x] Task: Implement Configuration Validation 61ed3c2
     - [ ] Add config dependency to `BackupManager`.
     - [ ] Implement validation logic: ensure backup directory is set and exists.
     - [ ] Prevent backup creation if validation fails.
