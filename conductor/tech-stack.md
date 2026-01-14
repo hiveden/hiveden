@@ -18,5 +18,8 @@
     - [SQLite](https://www.sqlite.org/) - For lightweight/default database usage.
 - **Migrations:** [yoyo-migrations](https://ollycope.com/software/yoyo/) - For database schema management.
 
+## Scheduling
+- **Task Scheduler:** [APScheduler](https://apscheduler.readthedocs.io/) - For scheduling recurring tasks (backups).
+
 ## Integrations
 - **DNS/Ad-blocking:** [Pi-hole](https://pi-hole.net/) (via `pihole6api`) - For managing Pi-hole instances.
