@@ -71,3 +71,51 @@ class BackupManager:
             if os.path.exists(filepath):
                 os.remove(filepath)
             raise Exception(f"App data backup failed: {e}") from e
+
+    def restore_postgres_backup(self, backup_file: str, db_name: str) -> None:
+        """
+        Restores a PostgreSQL database from a backup file.
+        
+        Args:
+            backup_file: Path to the backup file (.sql).
+            db_name: Name of the database to restore to.
+            
+        Raises:
+            FileNotFoundError: If backup file doesn't exist.
+            Exception: If restore fails.
+        """
+        if not os.path.exists(backup_file):
+             raise FileNotFoundError(f"Backup file not found: {backup_file}")
+
+        try:
+             subprocess.run(
+                ["psql", "-f", backup_file, db_name],
+                check=True,
+                capture_output=True,
+                text=True
+             )
+        except subprocess.CalledProcessError as e:
+             raise Exception(f"Restore failed: {e.stderr}") from e
+
+    def restore_app_data_backup(self, backup_file: str, dest_dir: str) -> None:
+        """
+        Restores application data from a backup archive to the destination directory.
+        
+        Args:
+            backup_file: Path to the backup archive.
+            dest_dir: Directory to extract to.
+            
+        Raises:
+            FileNotFoundError: If backup file doesn't exist.
+            Exception: If restore fails.
+        """
+        if not os.path.exists(backup_file):
+            raise FileNotFoundError(f"Backup file not found: {backup_file}")
+            
+        os.makedirs(dest_dir, exist_ok=True)
+        
+        try:
+            with tarfile.open(backup_file, "r:gz") as tar:
+                tar.extractall(path=dest_dir)
+        except Exception as e:
+            raise Exception(f"App data restore failed: {e}") from e

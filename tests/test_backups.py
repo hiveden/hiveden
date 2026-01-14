@@ -86,3 +86,54 @@ def test_create_app_data_backup_failure(tmp_path):
         
         with pytest.raises(Exception):
             manager.create_app_data_backup([str(source_dir)], str(output_dir))
+
+def test_restore_postgres_backup_success(tmp_path):
+    from hiveden.backups.manager import BackupManager
+    manager = BackupManager()
+    backup_file = tmp_path / "backup.sql"
+    backup_file.touch()
+    
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        
+        manager.restore_postgres_backup(str(backup_file), "my_db")
+        
+        # Verify psql command
+        args = mock_run.call_args[0][0]
+        assert "psql" in args
+        assert "-f" in args
+        assert str(backup_file) in args
+        assert "my_db" in args
+
+def test_restore_app_data_backup_success(tmp_path):
+    from hiveden.backups.manager import BackupManager
+    import tarfile
+    
+    manager = BackupManager()
+    backup_file = tmp_path / "backup.tar.gz"
+    backup_file.touch()
+    dest_dir = tmp_path / "restore"
+    
+    with patch("tarfile.open") as mock_tar:
+        mock_context = MagicMock()
+        mock_tar.return_value.__enter__.return_value = mock_context
+        
+        manager.restore_app_data_backup(str(backup_file), str(dest_dir))
+        
+        mock_context.extractall.assert_called_with(path=str(dest_dir))
+
+def test_restore_failure(tmp_path):
+    from hiveden.backups.manager import BackupManager
+    manager = BackupManager()
+    
+    # Test psql failure
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = Exception("psql failed")
+        with pytest.raises(Exception):
+            manager.restore_postgres_backup("file", "db")
+
+    # Test tar failure
+    with patch("tarfile.open") as mock_tar:
+        mock_tar.side_effect = Exception("tar failed")
+        with pytest.raises(Exception):
+            manager.restore_app_data_backup("file", "dir")
