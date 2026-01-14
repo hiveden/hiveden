@@ -12,7 +12,7 @@
 - [x] Task: Implement Application Data Backup 4a2ea5e
   - [ ] Write tests for file archiving logic.
   - [ ] Implement file archiving (tar/zip) for specified directories (e.g., `/etc/hiveden`, data dirs).
-- [ ] Task: Implement Restore Logic
+- [x] Task: Implement Restore Logic 024381f
   - [ ] Write tests for restore process (mocking `pg_restore` and file extraction).
   - [ ] Implement `pg_restore` wrapper.
   - [ ] Implement file extraction logic.
