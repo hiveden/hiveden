@@ -1,15 +1,13 @@
 import pytest
+from unittest.mock import patch, MagicMock
 
-def test_backup_module_exists():
+def test_backup_module_exists(mock_docker_module):
     import hiveden.backups
 
-def test_backup_manager_exists():
+def test_backup_manager_exists(mock_docker_module):
     from hiveden.backups.manager import BackupManager
 
-from unittest.mock import patch, MagicMock
-import os
-
-def test_create_postgres_backup_success(tmp_path):
+def test_create_postgres_backup_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()
@@ -33,7 +31,7 @@ def test_create_postgres_backup_success(tmp_path):
         assert "pg_dump" in args
         assert "my_db" in args
 
-def test_create_postgres_backup_failure(tmp_path):
+def test_create_postgres_backup_failure(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     manager = BackupManager()
     output_dir = tmp_path / "backups"
@@ -45,7 +43,7 @@ def test_create_postgres_backup_failure(tmp_path):
         with pytest.raises(Exception):
             manager.create_postgres_backup("my_db", str(output_dir))
 
-def test_create_app_data_backup_success(tmp_path):
+def test_create_app_data_backup_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     import tarfile
     
@@ -75,7 +73,7 @@ def test_create_app_data_backup_success(tmp_path):
         # Verify files were added
         mock_context.add.assert_called()
 
-def test_create_app_data_backup_failure(tmp_path):
+def test_create_app_data_backup_failure(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     manager = BackupManager()
     output_dir = tmp_path / "backups"
@@ -87,7 +85,7 @@ def test_create_app_data_backup_failure(tmp_path):
         with pytest.raises(Exception):
             manager.create_app_data_backup([str(source_dir)], str(output_dir))
 
-def test_restore_postgres_backup_success(tmp_path):
+def test_restore_postgres_backup_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     manager = BackupManager()
     backup_file = tmp_path / "backup.sql"
@@ -105,7 +103,7 @@ def test_restore_postgres_backup_success(tmp_path):
         assert str(backup_file) in args
         assert "my_db" in args
 
-def test_restore_app_data_backup_success(tmp_path):
+def test_restore_app_data_backup_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     import tarfile
     
@@ -122,7 +120,7 @@ def test_restore_app_data_backup_success(tmp_path):
         
         mock_context.extractall.assert_called_with(path=str(dest_dir))
 
-def test_restore_failure(tmp_path):
+def test_restore_failure(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     manager = BackupManager()
     

@@ -1,13 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
-import sys
 
-# Mock the DockerManager module BEFORE importing BackupManager
-# This prevents the import chain that leads to missing dependencies (yoyo, docker, etc.)
-mock_docker_module = MagicMock()
-sys.modules["hiveden.docker.containers"] = mock_docker_module
-
-def test_app_backup_with_lifecycle_success(tmp_path):
+def test_app_backup_with_lifecycle_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()
@@ -16,8 +10,7 @@ def test_app_backup_with_lifecycle_success(tmp_path):
     source_dir = tmp_path / "app_data"
     source_dir.mkdir()
     
-    # We need to ensure that when BackupManager instantiates DockerManager, it gets our mock
-    # Since we mocked the module, DockerManager class is mock_docker_module.DockerManager
+    # The DockerManager class used by BackupManager is our mock
     MockDockerManagerClass = mock_docker_module.DockerManager
     mock_docker_instance = MockDockerManagerClass.return_value
     
@@ -33,7 +26,7 @@ def test_app_backup_with_lifecycle_success(tmp_path):
     mock_docker_instance.stop_container.assert_called_with("my_container")
     mock_docker_instance.start_container.assert_called_with("my_container")
 
-def test_app_backup_restarts_container_on_failure(tmp_path):
+def test_app_backup_restarts_container_on_failure(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()

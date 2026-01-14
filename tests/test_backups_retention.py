@@ -2,13 +2,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 import os
 import time
-import sys
 
-# Mock the DockerManager module BEFORE importing BackupManager
-mock_docker_module = MagicMock()
-sys.modules["hiveden.docker.containers"] = mock_docker_module
-
-def test_list_backups(tmp_path):
+def test_list_backups(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()
@@ -40,7 +35,7 @@ def test_list_backups(tmp_path):
         assert len(db1_backups) == 1
         assert db1_backups[0]['target'] == 'db1'
 
-def test_enforce_retention_policy(tmp_path):
+def test_enforce_retention_policy(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()
@@ -66,7 +61,7 @@ def test_enforce_retention_policy(tmp_path):
         assert files[1].name not in [p.name for p in remaining]
         assert files[4].name in [p.name for p in remaining]
 
-def test_backup_creation_enforces_retention(tmp_path):
+def test_backup_creation_enforces_retention(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
     
     manager = BackupManager()
