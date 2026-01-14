@@ -8,9 +8,38 @@ from hiveden.config.settings import config
 from hiveden.docker.containers import DockerManager
 
 class BackupManager:
+    def _get_db_config(self, key: str) -> Optional[str]:
+        """Helper to fetch config from DB 'core' module."""
+        try:
+            from hiveden.db.session import get_db_manager
+            from hiveden.db.repositories.core import ConfigRepository, ModuleRepository
+            
+            db_manager = get_db_manager()
+            module_repo = ModuleRepository(db_manager)
+            config_repo = ConfigRepository(db_manager)
+            
+            core_module = module_repo.get_by_short_name('core')
+            if core_module:
+                cfg = config_repo.get_by_module_and_key(core_module.id, key)
+                if cfg:
+                    return cfg['value']
+        except Exception as e:
+            # print(f"Error fetching DB config for {key}: {e}")
+            pass
+        return None
+
     def get_backup_directory(self, override_dir: Optional[str] = None) -> str:
         """Resolves the backup directory."""
-        path = override_dir or config.backup_directory
+        if override_dir:
+            return override_dir
+            
+        # Try DB first
+        db_dir = self._get_db_config('backups.directory')
+        if db_dir:
+            return db_dir
+            
+        # Fallback to settings
+        path = config.backup_directory
         if not path:
             raise ValueError("Backup configuration missing: No backup directory set.")
         return path
@@ -23,8 +52,15 @@ class BackupManager:
 
     def get_retention_count(self) -> int:
         """Returns the number of backups to keep."""
-        # Default to 5 if not configured. 
-        # In a real scenario, this would come from config.backup_retention_count
+        # Try DB first
+        val = self._get_db_config('backups.retention_count')
+        if val:
+            try:
+                return int(val)
+            except ValueError:
+                pass
+                
+        # Default to settings or 5
         return getattr(config, 'backup_retention_count', 5)
 
     def list_backups(self, backup_type: Optional[str] = None, target: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -77,8 +113,6 @@ class BackupManager:
                 if len(parts) >= 3:
                     timestamp = f"{parts[-2]}_{parts[-1]}"
                     b_target = "_".join(parts[:-2])
-                    # Fix for our app data name: hiveden_app_data -> target should probably be just 'hiveden_app_data'?
-                    # or 'hiveden'? logic above would make target 'hiveden_app_data'
                 else:
                     b_target = base
             
@@ -108,13 +142,10 @@ class BackupManager:
         backups = self.list_backups(backup_type=backup_type, target=target)
         
         if len(backups) > max_backups:
-            # backups are sorted newest first. 
-            # We keep the first `max_backups`, delete the rest.
             to_delete = backups[max_backups:]
             for b in to_delete:
                 try:
                     os.remove(b["path"])
-                    # print(f"Deleted old backup: {b['filename']}")
                 except OSError as e:
                     print(f"Error deleting backup {b['path']}: {e}")
 
@@ -137,19 +168,6 @@ class BackupManager:
                 text=True
             )
             
-            # Enforce retention policy
-            # Only if using default directory (or we should enforce on output_dir too?)
-            # Usually retention implies managed directory.
-            # If explicit output_dir is given, maybe user wants a one-off?
-            # But the test assumes logic happens.
-            # I will run it on the target_dir implicitly by calling enforce on the 'target'.
-            # However, list_backups uses get_backup_directory().
-            # If output_dir != config dir, list_backups won't see these files unless I update list_backups signature
-            # or context.
-            # For now, let's assume retention applies primarily to the configured directory.
-            # But if I pass output_dir, list_backups needs to know.
-            # The test mocks config.backup_directory, so get_backup_directory() works fine.
-            
             self.enforce_retention_policy(target=db_name, backup_type="database", max_backups=self.get_retention_count())
             
             return filepath
@@ -164,8 +182,6 @@ class BackupManager:
         target_dir = self.get_backup_directory(output_dir)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Target name logic:
-        # If I change this name, I must update the retention target logic.
         target_name = "hiveden_app_data"
         filename = f"{target_name}_{timestamp}.tar.gz"
         filepath = os.path.join(target_dir, filename)

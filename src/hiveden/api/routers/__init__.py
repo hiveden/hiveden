@@ -1,4 +1,5 @@
 from . import (
+    backups,
     config,
     database,
     docker,
