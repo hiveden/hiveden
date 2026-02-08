@@ -44,7 +44,7 @@ def test_scheduler_load_jobs():
                 {"id": "1", "cron": "0 0 * * *", "type": "database", "target": "db1"}
             ]
             
-            with patch.object(scheduler, '_get_schedules_from_db', return_value=schedules):
+            with patch.object(scheduler, 'get_schedules', return_value=schedules):
                 with patch.object(scheduler, 'schedule_backup') as mock_schedule:
                     scheduler.load_jobs()
                     mock_schedule.assert_called_once_with(

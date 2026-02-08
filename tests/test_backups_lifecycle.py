@@ -1,5 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
+import sys
+
+# Mock yoyo
+sys.modules["yoyo"] = MagicMock()
 
 def test_app_backup_with_lifecycle_success(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
@@ -14,7 +18,8 @@ def test_app_backup_with_lifecycle_success(tmp_path, mock_docker_module):
     MockDockerManagerClass = mock_docker_module.DockerManager
     mock_docker_instance = MockDockerManagerClass.return_value
     
-    with patch("tarfile.open"):
+    with patch("tarfile.open"), \
+         patch("hiveden.backups.manager.os.path.getsize", return_value=1024):
         with patch("hiveden.config.settings.config.backup_directory", str(output_dir)):
             manager.create_app_data_backup(
                 source_dirs=[str(source_dir)],

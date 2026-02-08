@@ -1,6 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from hiveden.backups.manager import BackupManager
+from hiveden.services.logs import LogService
 import json
 import logging
 import uuid
@@ -21,11 +22,18 @@ class BackupScheduler:
             return
         self.scheduler = AsyncIOScheduler()
         self.manager = BackupManager()
+        self.log_service = LogService()
         self._initialized = True
 
     def start(self):
         if not self.scheduler.running:
             self.scheduler.start()
+            self.log_service.info(
+                actor="scheduler",
+                action="start",
+                message="Backup scheduler started",
+                module="backups"
+            )
         self.load_jobs()
 
     def _get_db_access(self):
@@ -48,6 +56,13 @@ class BackupScheduler:
                     return json.loads(cfg['value'])
         except Exception as e:
             logger.error(f"Failed to load schedules: {e}")
+            self.log_service.error(
+                actor="scheduler",
+                action="load_schedules",
+                message="Failed to load backup schedules",
+                error_details=str(e),
+                module="backups"
+            )
         return []
 
     def save_schedules(self, schedules):
@@ -58,6 +73,13 @@ class BackupScheduler:
                 self.load_jobs() # Reload to apply changes
         except Exception as e:
             logger.error(f"Failed to save schedules: {e}")
+            self.log_service.error(
+                actor="scheduler",
+                action="save_schedules",
+                message="Failed to save backup schedules",
+                error_details=str(e),
+                module="backups"
+            )
             raise
 
     def add_schedule(self, schedule_data):
@@ -67,6 +89,15 @@ class BackupScheduler:
         
         schedules.append(schedule_data)
         self.save_schedules(schedules)
+        
+        self.log_service.info(
+            actor="scheduler",
+            action="add_schedule",
+            message=f"Added new backup schedule for {schedule_data.get('target')}",
+            metadata=schedule_data,
+            module="backups"
+        )
+        
         return schedule_data
 
     def delete_schedule(self, schedule_id):
@@ -78,15 +109,20 @@ class BackupScheduler:
             self.scheduler.remove_job(schedule_id)
         except Exception:
             pass
+            
+        self.log_service.info(
+            actor="scheduler",
+            action="delete_schedule",
+            message=f"Deleted backup schedule {schedule_id}",
+            module="backups"
+        )
 
     def load_jobs(self):
-        # Clear existing jobs first? 
-        # Or replace_existing=True in add_job handles it?
-        # If we deleted a job in DB, we should remove it from scheduler.
-        # Simplest is remove all and re-add.
+        # Clear existing jobs first
         self.scheduler.remove_all_jobs()
         
         schedules = self.get_schedules()
+        loaded_count = 0
         for s in schedules:
             try:
                 self.schedule_backup(
@@ -97,27 +133,52 @@ class BackupScheduler:
                     container_name=s.get('container_name'),
                     source_dirs=s.get('source_dirs')
                 )
+                loaded_count += 1
             except Exception as e:
                 logger.error(f"Failed to schedule job {s}: {e}")
+                self.log_service.error(
+                    actor="scheduler",
+                    action="load_job",
+                    message=f"Failed to load schedule for {s.get('target')}",
+                    error_details=str(e),
+                    metadata=s,
+                    module="backups"
+                )
+        
+        self.log_service.info(
+            actor="scheduler",
+            action="load_jobs",
+            message=f"Loaded {loaded_count} backup schedules",
+            module="backups"
+        )
 
     def schedule_backup(self, schedule_id, cron_expression, backup_type, target, container_name=None, source_dirs=None):
         try:
             trigger = CronTrigger.from_crontab(cron_expression)
         except ValueError as e:
             logger.error(f"Invalid cron expression '{cron_expression}': {e}")
+            self.log_service.error(
+                actor="scheduler",
+                action="schedule_job",
+                message=f"Invalid cron expression for {target}: {cron_expression}",
+                error_details=str(e),
+                module="backups"
+            )
             return
         
         func = None
         kwargs = {}
         
+        # Pass actor="scheduler" to the backup methods
         if backup_type == "database":
             func = self.manager.create_postgres_backup
-            kwargs = {"db_name": target}
+            kwargs = {"db_name": target, "actor": "scheduler"}
         elif backup_type == "application":
             func = self.manager.create_app_data_backup
             kwargs = {
                 "source_dirs": source_dirs or [],
-                "container_name": container_name
+                "container_name": container_name,
+                "actor": "scheduler"
             }
             
         if func:

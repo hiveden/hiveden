@@ -7,5 +7,5 @@ psutil
 lxc
 pihole6api
 yoyo-migrations
-psycopg2
+psycopg2-binary
 APScheduler

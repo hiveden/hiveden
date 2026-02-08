@@ -60,7 +60,7 @@ def test_create_backup_postgres():
         
         assert response.status_code == 201
         assert response.json()["path"] == "/tmp/backup.sql"
-        mock_bm.create_postgres_backup.assert_called_with(db_name="mydb")
+        mock_bm.create_postgres_backup.assert_called_with(db_name="mydb", actor="api")
 
 def test_create_backup_app():
     from hiveden.api.routers.backups import router
@@ -78,7 +78,7 @@ def test_create_backup_app():
         response = client.post("/backups", json=payload)
         
         assert response.status_code == 201
-        mock_bm.create_app_data_backup.assert_called_with(source_dirs=["/data"], container_name="hiveden")
+        mock_bm.create_app_data_backup.assert_called_with(source_dirs=["/data"], container_name="hiveden", actor="api")
 
 def test_get_config():
     from hiveden.api.routers.backups import router
@@ -187,3 +187,18 @@ def test_delete_schedule():
         
         assert response.status_code == 200
         mock_instance.delete_schedule.assert_called_with("123")
+
+def test_delete_backup():
+    from hiveden.api.routers.backups import router
+    from fastapi import FastAPI
+    
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+    
+    with patch("hiveden.api.routers.backups.BackupManager") as MockBM:
+        mock_instance = MockBM.return_value
+        
+        response = client.delete("/backups/test.sql")
+        assert response.status_code == 200
+        mock_instance.delete_backup.assert_called_with("test.sql", actor="api")

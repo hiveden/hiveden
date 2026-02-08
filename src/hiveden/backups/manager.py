@@ -6,8 +6,14 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from hiveden.config.settings import config
 from hiveden.docker.containers import DockerManager
+from hiveden.services.logs import LogService
+from hiveden.db.session import get_db_manager
 
 class BackupManager:
+    def __init__(self):
+        self.log_service = LogService()
+        self.log_module = "backups"
+
     def _get_db_config(self, key: str) -> Optional[str]:
         """Helper to fetch config from DB 'core' module."""
         try:
@@ -102,7 +108,12 @@ class BackupManager:
                 parts = base.rsplit("_", 2) # split at last 2 underscores
                 if len(parts) >= 3:
                     # name_YYYYMMDD_HHMMSS
-                    timestamp = f"{parts[-2]}_{parts[-1]}"
+                    ts_str = f"{parts[-2]}_{parts[-1]}"
+                    try:
+                        dt = datetime.strptime(ts_str, "%Y%m%d_%H%M%S")
+                        timestamp = dt.isoformat()
+                    except ValueError:
+                        timestamp = ts_str
                     b_target = "_".join(parts[:-2])
                 else:
                     b_target = base
@@ -111,7 +122,12 @@ class BackupManager:
                 base = name[:-7]
                 parts = base.rsplit("_", 2)
                 if len(parts) >= 3:
-                    timestamp = f"{parts[-2]}_{parts[-1]}"
+                    ts_str = f"{parts[-2]}_{parts[-1]}"
+                    try:
+                        dt = datetime.strptime(ts_str, "%Y%m%d_%H%M%S")
+                        timestamp = dt.isoformat()
+                    except ValueError:
+                        timestamp = ts_str
                     b_target = "_".join(parts[:-2])
                 else:
                     b_target = base
@@ -135,7 +151,7 @@ class BackupManager:
         backups.sort(key=lambda x: x["mtime"], reverse=True)
         return backups
 
-    def enforce_retention_policy(self, target: str, backup_type: str, max_backups: int) -> None:
+    def enforce_retention_policy(self, target: str, backup_type: str, max_backups: int, actor: str = "system") -> None:
         """
         Deletes old backups for a specific target exceeding max_backups.
         """
@@ -143,97 +159,191 @@ class BackupManager:
         
         if len(backups) > max_backups:
             to_delete = backups[max_backups:]
+            deleted_count = 0
             for b in to_delete:
                 try:
                     os.remove(b["path"])
+                    deleted_count += 1
                 except OSError as e:
-                    print(f"Error deleting backup {b['path']}: {e}")
-
-    def create_postgres_backup(self, db_name: str, output_dir: Optional[str] = None) -> str:
-        """Creates a backup of the specified PostgreSQL database."""
-        self.validate_config(output_dir)
-        target_dir = self.get_backup_directory(output_dir)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{db_name}_{timestamp}.sql"
-        filepath = os.path.join(target_dir, filename)
-        
-        os.makedirs(target_dir, exist_ok=True)
-        
-        try:
-            subprocess.run(
-                ["pg_dump", "-f", filepath, db_name],
-                check=True,
-                capture_output=True,
-                text=True
-            )
+                    self.log_service.error(
+                        actor=actor,
+                        action="delete_backup",
+                        message=f"Failed to delete old backup {b['path']}",
+                        error_details=str(e),
+                        module=self.log_module
+                    )
             
-            self.enforce_retention_policy(target=db_name, backup_type="database", max_backups=self.get_retention_count())
+            if deleted_count > 0:
+                self.log_service.info(
+                    actor=actor,
+                    action="enforce_retention",
+                    message=f"Deleted {deleted_count} old backups for {target} (policy: keep {max_backups})",
+                    module=self.log_module
+                )
+
+    def create_postgres_backup(self, db_name: str, output_dir: Optional[str] = None, actor: str = "system") -> str:
+        """Creates a backup of the specified PostgreSQL database."""
+        self.log_service.info(
+            actor=actor,
+            action="backup_database",
+            message=f"Starting PostgreSQL backup for database: {db_name}",
+            module=self.log_module
+        )
+
+        filepath = None
+
+        try:
+            self.validate_config(output_dir)
+            target_dir = self.get_backup_directory(output_dir)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{db_name}_{timestamp}.sql"
+            filepath = os.path.join(target_dir, filename)
+            
+            os.makedirs(target_dir, exist_ok=True)
+        
+            # Delegate to DatabaseManager
+            db_manager = get_db_manager()
+            db_manager.backup_database(db_name, filepath)
+            
+            self.log_service.info(
+                actor=actor,
+                action="backup_database",
+                message=f"Backup completed successfully for {db_name}",
+                metadata={"file": filepath, "size": os.path.getsize(filepath)},
+                module=self.log_module
+            )
+
+            self.enforce_retention_policy(target=db_name, backup_type="database", max_backups=self.get_retention_count(), actor=actor)
             
             return filepath
-        except subprocess.CalledProcessError as e:
-            if os.path.exists(filepath):
+        except Exception as e:
+            if filepath and os.path.exists(filepath):
                 os.remove(filepath)
-            raise Exception(f"Backup failed: {e.stderr}") from e
+            
+            self.log_service.error(
+                actor=actor,
+                action="backup_database",
+                message=f"PostgreSQL backup failed for {db_name}",
+                error_details=str(e),
+                module=self.log_module
+            )
+            raise
 
-    def create_app_data_backup(self, source_dirs: List[str], output_dir: Optional[str] = None, container_name: Optional[str] = None) -> str:
+    def create_app_data_backup(self, source_dirs: List[str], output_dir: Optional[str] = None, container_name: Optional[str] = None, actor: str = "system") -> str:
         """Creates a compressed archive of the specified source directories."""
-        self.validate_config(output_dir)
-        target_dir = self.get_backup_directory(output_dir)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_name = "hiveden_app_data"
-        filename = f"{target_name}_{timestamp}.tar.gz"
-        filepath = os.path.join(target_dir, filename)
-        
-        os.makedirs(target_dir, exist_ok=True)
-        
-        docker_manager = None
-        if container_name:
-            docker_manager = DockerManager()
-            try:
-                docker_manager.stop_container(container_name)
-            except Exception:
-                pass
+        self.log_service.info(
+            actor=actor,
+            action="backup_application",
+            message=f"Starting application data backup. Source dirs: {source_dirs}",
+            metadata={"container": container_name} if container_name else {},
+            module=self.log_module
+        )
 
         try:
+            self.validate_config(output_dir)
+            target_dir = self.get_backup_directory(output_dir)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            target_name = "hiveden_app_data" # Default target name if not inferable? 
+            # Ideally we should pass a 'name' for this backup job, but the current sig doesn't have it.
+            # Using hiveden_app_data as per original code.
+            
+            filename = f"{target_name}_{timestamp}.tar.gz"
+            filepath = os.path.join(target_dir, filename)
+            
+            os.makedirs(target_dir, exist_ok=True)
+            
+            docker_manager = None
+            if container_name:
+                docker_manager = DockerManager()
+                try:
+                    self.log_service.info(actor=actor, action="stop_container", message=f"Stopping container {container_name} for backup", module=self.log_module)
+                    docker_manager.stop_container(container_name)
+                except Exception as e:
+                    self.log_service.warning(actor=actor, action="stop_container", message=f"Failed to stop container {container_name}", error_details=str(e), module=self.log_module)
+
             with tarfile.open(filepath, "w:gz") as tar:
                 for source_dir in source_dirs:
                     if os.path.exists(source_dir):
                         tar.add(source_dir, arcname=os.path.basename(source_dir))
             
-            self.enforce_retention_policy(target=target_name, backup_type="application", max_backups=self.get_retention_count())
+            self.log_service.info(
+                actor=actor,
+                action="backup_application",
+                message=f"Application backup completed successfully.",
+                metadata={"file": filepath, "size": os.path.getsize(filepath)},
+                module=self.log_module
+            )
+
+            self.enforce_retention_policy(target=target_name, backup_type="application", max_backups=self.get_retention_count(), actor=actor)
             
             return filepath
         except Exception as e:
-            if os.path.exists(filepath):
+            if 'filepath' in locals() and os.path.exists(filepath):
                 os.remove(filepath)
+            self.log_service.error(
+                actor=actor,
+                action="backup_application",
+                message="Application backup failed",
+                error_details=str(e),
+                module=self.log_module
+            )
             raise Exception(f"App data backup failed: {e}") from e
         finally:
             if docker_manager and container_name:
                 try:
+                    self.log_service.info(actor=actor, action="start_container", message=f"Restarting container {container_name}", module=self.log_module)
                     docker_manager.start_container(container_name)
                 except Exception as e:
+                    self.log_service.error(actor=actor, action="start_container", message=f"Failed to restart container {container_name}", error_details=str(e), module=self.log_module)
                     print(f"Failed to restart container {container_name}: {e}")
 
-    def restore_postgres_backup(self, backup_file: str, db_name: str) -> None:
+    def restore_postgres_backup(self, backup_file: str, db_name: str, actor: str = "system") -> None:
         """Restores a PostgreSQL database from a backup file."""
+        self.log_service.info(
+            actor=actor,
+            action="restore_database",
+            message=f"Starting database restore for {db_name} from {backup_file}",
+            module=self.log_module
+        )
+
         if not os.path.exists(backup_file):
+             self.log_service.error(actor=actor, action="restore_database", message=f"Backup file not found: {backup_file}", module=self.log_module)
              raise FileNotFoundError(f"Backup file not found: {backup_file}")
 
         try:
-             subprocess.run(
-                ["psql", "-f", backup_file, db_name],
-                check=True,
-                capture_output=True,
-                text=True
-             )
-        except subprocess.CalledProcessError as e:
-             raise Exception(f"Restore failed: {e.stderr}") from e
+             # Delegate to DatabaseManager
+             db_manager = get_db_manager()
+             db_manager.restore_database(db_name, backup_file)
 
-    def restore_app_data_backup(self, backup_file: str, dest_dir: str) -> None:
+             self.log_service.info(
+                actor=actor,
+                action="restore_database",
+                message=f"Database restore completed successfully for {db_name}",
+                module=self.log_module
+             )
+        except Exception as e:
+             self.log_service.error(
+                actor=actor,
+                action="restore_database",
+                message=f"Database restore failed for {db_name}",
+                error_details=str(e),
+                module=self.log_module
+             )
+             raise
+             
+    def restore_app_data_backup(self, backup_file: str, dest_dir: str, actor: str = "system") -> None:
         """Restores application data from a backup archive."""
+        self.log_service.info(
+            actor=actor,
+            action="restore_application",
+            message=f"Starting application data restore from {backup_file} to {dest_dir}",
+            module=self.log_module
+        )
+
         if not os.path.exists(backup_file):
+            self.log_service.error(actor=actor, action="restore_application", message=f"Backup file not found: {backup_file}", module=self.log_module)
             raise FileNotFoundError(f"Backup file not found: {backup_file}")
             
         os.makedirs(dest_dir, exist_ok=True)
@@ -241,5 +351,74 @@ class BackupManager:
         try:
             with tarfile.open(backup_file, "r:gz") as tar:
                 tar.extractall(path=dest_dir)
+            
+            self.log_service.info(
+                actor=actor,
+                action="restore_application",
+                message=f"Application restore completed successfully",
+                module=self.log_module
+            )
         except Exception as e:
+            self.log_service.error(
+                actor=actor,
+                action="restore_application",
+                message="Application restore failed",
+                error_details=str(e),
+                module=self.log_module
+            )
             raise Exception(f"App data restore failed: {e}") from e
+
+    def delete_backup(self, filename: str, actor: str = "system") -> None:
+        """Deletes a specific backup file."""
+        self.log_service.info(
+            actor=actor,
+            action="delete_backup",
+            message=f"Request to delete backup: {filename}",
+            module=self.log_module
+        )
+
+        backup_dir = self.get_backup_directory()
+        filepath = os.path.join(backup_dir, filename)
+        
+        # Security check: prevent path traversal
+        # resolve absolute paths
+        abs_backup_dir = os.path.abspath(backup_dir)
+        abs_filepath = os.path.abspath(filepath)
+        
+        if not abs_filepath.startswith(abs_backup_dir):
+            msg = f"Security violation: Invalid backup filename {filename}"
+            self.log_service.warning(
+                actor=actor,
+                action="delete_backup",
+                message=msg,
+                module=self.log_module
+            )
+            raise ValueError("Invalid filename")
+
+        if not os.path.exists(filepath):
+            msg = f"Backup file not found: {filename}"
+            self.log_service.warning(
+                actor=actor,
+                action="delete_backup",
+                message=msg,
+                module=self.log_module
+            )
+            raise FileNotFoundError(msg)
+
+        try:
+            os.remove(filepath)
+            self.log_service.info(
+                actor=actor,
+                action="delete_backup",
+                message=f"Backup deleted successfully: {filename}",
+                module=self.log_module
+            )
+        except Exception as e:
+            self.log_service.error(
+                actor=actor,
+                action="delete_backup",
+                message=f"Failed to delete backup {filename}",
+                error_details=str(e),
+                module=self.log_module
+            )
+            raise

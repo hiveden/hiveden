@@ -51,7 +51,7 @@ mkdir -p %{buildroot}/opt/hiveden
 %post
 %systemd_post hiveden.service
 # Install all Python dependencies via pip
-pip3 install --no-warn-script-location click fastapi uvicorn docker PyYAML psutil lxc paramiko websockets pihole6api yoyo-migrations python-multipart 2>/dev/null || true
+pip3 install --no-warn-script-location click fastapi uvicorn docker PyYAML psutil lxc paramiko websockets pihole6api yoyo-migrations python-multipart APScheduler 2>/dev/null || true
 
 %preun
 %systemd_preun hiveden.service

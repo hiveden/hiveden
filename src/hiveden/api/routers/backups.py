@@ -1,3 +1,4 @@
+import traceback
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -112,22 +113,28 @@ def list_backups(
     type: Optional[str] = Query(None),
     target: Optional[str] = Query(None)
 ):
-    manager = BackupManager()
-    return manager.list_backups(backup_type=type, target=target)
+    try:
+        manager = BackupManager()
+        return manager.list_backups(backup_type=type, target=target)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Error listing backups: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("", status_code=201)
 def create_backup(request: BackupCreateRequest):
-    manager = BackupManager()
     try:
+        manager = BackupManager()
         path = None
         if request.type == "database":
-            path = manager.create_postgres_backup(db_name=request.target)
+            path = manager.create_postgres_backup(db_name=request.target, actor="api")
         elif request.type == "application":
             if not request.source_dirs:
                 raise HTTPException(status_code=400, detail="source_dirs required for application backup")
             path = manager.create_app_data_backup(
                 source_dirs=request.source_dirs,
-                container_name=request.container_name
+                container_name=request.container_name,
+                actor="api"
             )
         else:
             raise HTTPException(status_code=400, detail="Invalid backup type. Must be 'database' or 'application'.")
@@ -136,16 +143,18 @@ def create_backup(request: BackupCreateRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        traceback.print_exc()
+        print(f"Error creating backup: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/restore")
 def restore_backup(request: BackupRestoreRequest):
-    manager = BackupManager()
     try:
+        manager = BackupManager()
         if request.type == "database":
-            manager.restore_postgres_backup(backup_file=request.backup_file, db_name=request.target)
+            manager.restore_postgres_backup(backup_file=request.backup_file, db_name=request.target, actor="api")
         elif request.type == "application":
-            manager.restore_app_data_backup(backup_file=request.backup_file, dest_dir=request.target)
+            manager.restore_app_data_backup(backup_file=request.backup_file, dest_dir=request.target, actor="api")
         else:
              raise HTTPException(status_code=400, detail="Invalid backup type")
         
@@ -153,4 +162,21 @@ def restore_backup(request: BackupRestoreRequest):
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        traceback.print_exc()
+        print(f"Error restoring backup: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/{filename}")
+def delete_backup(filename: str):
+    try:
+        manager = BackupManager()
+        manager.delete_backup(filename, actor="api")
+        return {"message": "Backup deleted successfully"}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Error deleting backup: {e}")
         raise HTTPException(status_code=500, detail=str(e))

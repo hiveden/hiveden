@@ -2,6 +2,10 @@ import pytest
 from unittest.mock import patch, MagicMock
 import os
 import time
+import sys
+
+# Mock yoyo
+sys.modules["yoyo"] = MagicMock()
 
 def test_list_backups(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
@@ -34,6 +38,9 @@ def test_list_backups(tmp_path, mock_docker_module):
         db1_backups = manager.list_backups(target="db1")
         assert len(db1_backups) == 1
         assert db1_backups[0]['target'] == 'db1'
+        
+        # Verify ISO timestamp parsing
+        assert db1_backups[0]['timestamp'] == "2023-01-01T12:00:00"
 
 def test_enforce_retention_policy(tmp_path, mock_docker_module):
     from hiveden.backups.manager import BackupManager
@@ -74,7 +81,8 @@ def test_backup_creation_enforces_retention(tmp_path, mock_docker_module):
         
     with patch("hiveden.config.settings.config.backup_directory", str(backup_dir)):
         with patch("hiveden.backups.manager.BackupManager.get_retention_count", return_value=3):
-            with patch("subprocess.run"): # Mock pg_dump
+            with patch("hiveden.backups.manager.get_db_manager"), \
+                 patch("hiveden.backups.manager.os.path.getsize", return_value=1024):
                 manager.create_postgres_backup("mydb")
                 
     # Result should be 3.

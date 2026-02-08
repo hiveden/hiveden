@@ -1,4 +1,5 @@
 import os
+import subprocess
 from urllib.parse import urlparse
 
 import psycopg2
@@ -127,3 +128,36 @@ class DatabaseManager:
             return cursor.fetchall()
         finally:
             conn.close()
+
+    def backup_database(self, db_name: str, output_path: str):
+        """Backup a database to a file."""
+        # Construct connection string for the specific target DB
+        target_url = self.parsed_url._replace(path=f"/{db_name}").geturl()
+        
+        try:
+            subprocess.run(
+                ["pg_dump", "--dbname", target_url, "-f", output_path],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Database backup failed: {e.stderr}") from e
+
+    def restore_database(self, db_name: str, input_path: str):
+        """Restore a database from a file."""
+        if not os.path.exists(input_path):
+             raise FileNotFoundError(f"Backup file not found: {input_path}")
+             
+        # Construct connection string for the specific target DB
+        target_url = self.parsed_url._replace(path=f"/{db_name}").geturl()
+        
+        try:
+            subprocess.run(
+                ["psql", "--dbname", target_url, "-f", input_path],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError as e:
+            raise Exception(f"Database restore failed: {e.stderr}") from e
