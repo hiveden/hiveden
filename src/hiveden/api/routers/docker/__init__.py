@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from hiveden.api.routers.docker import containers, images
+from hiveden.api.routers.docker import containers, images, volumes
 
 router = APIRouter(prefix="/docker")
 
@@ -8,3 +8,6 @@ router.include_router(containers.router)
 
 # Include image routes
 router.include_router(images.router)
+
+# Include volume routes
+router.include_router(volumes.router)

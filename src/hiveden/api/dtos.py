@@ -152,6 +152,20 @@ class NetworkResponse(BaseResponse):
     data: DockerNetwork
 
 
+class DockerVolume(BaseModel):
+    name: str
+    driver: str
+    mountpoint: str
+    created_at: str
+    labels: Optional[Dict[str, str]] = None
+    scope: str
+    options: Optional[Dict[str, str]] = None
+
+
+class VolumeListResponse(BaseResponse):
+    data: List[DockerVolume]
+
+
 class DiskListResponse(BaseResponse):
     data: List[Disk]
 
