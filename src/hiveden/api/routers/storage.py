@@ -12,7 +12,7 @@ from hiveden.api.dtos import (
     StorageStrategyApplyResponse,
     ErrorResponse,
     SuccessResponse,
-    RaidAddDiskRequest
+    RaidAddDiskRequest,
 )
 from hiveden.storage.manager import StorageManager
 from hiveden.storage.models import Disk, StorageStrategy, MountRequest
@@ -21,51 +21,59 @@ from hiveden.services.logs import LogService
 router = APIRouter(prefix="/storage", tags=["Storage"])
 manager = StorageManager()
 
+
 @router.post(
     "/raid/{md_device_name}/add-disk",
     response_model=StorageStrategyApplyResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad Request"},
-        500: {"model": ErrorResponse, "description": "Internal Server Error"}
-    }
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
 )
-def add_disk_to_raid(md_device_name: str, request: RaidAddDiskRequest):
+async def add_disk_to_raid(md_device_name: str, request: RaidAddDiskRequest):
     """
     Add a disk to an existing RAID array, optionally changing the RAID level.
     """
     try:
         # Assuming md_device_name is like 'md0', we prepend /dev/
         md_device = f"/dev/{md_device_name}"
-        job_id = manager.add_disk_to_raid(md_device, request.device_path, request.target_raid_level)
-        
+        job_id = manager.add_disk_to_raid(
+            md_device, request.device_path, request.target_raid_level
+        )
+
         LogService().info(
             actor="user",
             action="storage.raid.expand",
             message=f"Initiated RAID expansion for {md_device}",
             module="storage",
-            metadata={"device": md_device, "added_disk": request.device_path, "raid_level": request.target_raid_level, "job_id": job_id}
+            metadata={
+                "device": md_device,
+                "added_disk": request.device_path,
+                "raid_level": request.target_raid_level,
+                "job_id": job_id,
+            },
         )
-        
+
         return StorageStrategyApplyResponse(
-            message="RAID expansion initiated successfully",
-            data={"job_id": job_id}
+            message="RAID expansion initiated successfully", data={"job_id": job_id}
         )
     except Exception as e:
         logger.error(f"Error adding disk to RAID: {e}")
         import traceback
+
         logger.error(f"Error adding disk to RAID: {e}\n{traceback.format_exc()}")
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
+
 
 @router.post(
     "/mount",
     response_model=SuccessResponse,
     responses={
         400: {"model": ErrorResponse, "description": "Bad Request"},
-        500: {"model": ErrorResponse, "description": "Internal Server Error"}
-    }
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
 )
 def mount_partition(request: MountRequest):
     """
@@ -75,36 +83,38 @@ def mount_partition(request: MountRequest):
         mount_point = manager.mount_partition(
             device=request.device,
             automatic=request.automatic,
-            mount_name=request.mount_name
+            mount_name=request.mount_name,
         )
-        
+
         LogService().info(
             actor="user",
             action="storage.mount",
             message=f"Mounted partition {request.device} at {mount_point}",
             module="storage",
-            metadata={"device": request.device, "mount_point": mount_point}
+            metadata={"device": request.device, "mount_point": mount_point},
         )
-        
-        return SuccessResponse(message=f"Device {request.device} mounted at {mount_point}")
+
+        return SuccessResponse(
+            message=f"Device {request.device} mounted at {mount_point}"
+        )
     except ValueError as e:
         return JSONResponse(
-            status_code=400,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=400, content=ErrorResponse(message=str(e)).model_dump()
         )
     except Exception as e:
         logger.error(f"Error mounting device: {e}")
         import traceback
+
         logger.error(f"Error mounting device: {e}\n{traceback.format_exc()}")
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
 
+
 @router.get(
-    "/devices", 
+    "/devices",
     response_model=DiskListResponse,
-    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}}
+    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}},
 )
 def list_devices():
     """
@@ -115,17 +125,17 @@ def list_devices():
         return DiskListResponse(data=[d.dict() for d in disks])
     except Exception as e:
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
 
+
 @router.get(
-    "/devices/{device_name}", 
+    "/devices/{device_name}",
     response_model=DiskDetailResponse,
     responses={
         404: {"model": ErrorResponse, "description": "Device not found"},
-        500: {"model": ErrorResponse, "description": "Internal Server Error"}
-    }
+        500: {"model": ErrorResponse, "description": "Internal Server Error"},
+    },
 )
 def get_device_details(device_name: str):
     """
@@ -136,19 +146,19 @@ def get_device_details(device_name: str):
         if not details:
             return JSONResponse(
                 status_code=404,
-                content=ErrorResponse(message="Device not found").model_dump()
+                content=ErrorResponse(message="Device not found").model_dump(),
             )
         return DiskDetailResponse(data=details.dict())
     except Exception as e:
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
 
+
 @router.get(
-    "/strategies", 
+    "/strategies",
     response_model=StorageStrategyListResponse,
-    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}}
+    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}},
 )
 def list_strategies():
     """
@@ -159,14 +169,14 @@ def list_strategies():
         return StorageStrategyListResponse(data=[s.dict() for s in strategies])
     except Exception as e:
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
 
+
 @router.post(
-    "/apply", 
+    "/apply",
     response_model=StorageStrategyApplyResponse,
-    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}}
+    responses={500: {"model": ErrorResponse, "description": "Internal Server Error"}},
 )
 async def apply_strategy(strategy: StorageStrategy):
     """
@@ -174,26 +184,29 @@ async def apply_strategy(strategy: StorageStrategy):
     """
     try:
         job_id = manager.apply_strategy(strategy)
-        
+
         LogService().info(
             actor="user",
             action="storage.strategy.apply",
             message=f"Applying storage strategy: {strategy.name}",
             module="storage",
-            metadata={"strategy": strategy.name, "job_id": job_id, "type": strategy.type}
+            metadata={
+                "strategy": strategy.name,
+                "job_id": job_id,
+                "type": strategy.type,
+            },
         )
-        
+
         return StorageStrategyApplyResponse(
-            message="Storage configuration started",
-            data={"job_id": job_id}
+            message="Storage configuration started", data={"job_id": job_id}
         )
     except Exception as e:
         logger.error(f"Error applying storage strategy: {e}")
 
         import traceback
+
         logger.error(f"Error applying storage strategy: {e}\n{traceback.format_exc()}")
 
         return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(message=str(e)).model_dump()
+            status_code=500, content=ErrorResponse(message=str(e)).model_dump()
         )
