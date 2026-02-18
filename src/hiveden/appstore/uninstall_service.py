@@ -31,13 +31,23 @@ class AppUninstallService:
         if not app.installed:
             raise ValueError(f"App '{app_id}' is not installed")
 
-        self.catalog.set_installation_status(app_id, "uninstalling", installed_version=app.version)
+        self.catalog.set_installation_status(
+            app_id, "uninstalling", installed_version=app.version
+        )
         await job_manager.log(job_id, f"Preparing uninstall for {app_id}")
 
         resources = self.catalog.list_resources(app_id)
-        container_resources = [r for r in resources if r["resource_type"] == "container"]
+        container_resources = [
+            r for r in resources if r["resource_type"] == "container"
+        ]
         for resource in container_resources:
             name = resource["resource_name"]
+            if self._is_external_resource(resource):
+                await job_manager.log(
+                    job_id,
+                    f"Skipping external container {name}; unlinking only",
+                )
+                continue
             await job_manager.log(job_id, f"Removing container {name}")
             self._remove_container(name, delete_databases, delete_dns)
 
@@ -56,10 +66,14 @@ class AppUninstallService:
                 shutil.rmtree(app_dir, ignore_errors=True)
 
         self.catalog.delete_resources(app_id)
-        self.catalog.set_installation_status(app_id, "not_installed", installed_version=None, last_error=None)
+        self.catalog.set_installation_status(
+            app_id, "not_installed", installed_version=None, last_error=None
+        )
         await job_manager.log(job_id, f"App {app_id} uninstalled successfully")
 
-    def _remove_container(self, container_name: str, delete_databases: bool, delete_dns: bool):
+    def _remove_container(
+        self, container_name: str, delete_databases: bool, delete_dns: bool
+    ):
         try:
             c = self.docker.client.containers.get(container_name)
             if c.status == "running":
@@ -83,3 +97,8 @@ class AppUninstallService:
                 result.append(value)
         return result
 
+    def _is_external_resource(self, resource: dict) -> bool:
+        metadata = resource.get("metadata")
+        if not isinstance(metadata, dict):
+            return False
+        return bool(metadata.get("external", False))

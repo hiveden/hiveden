@@ -358,6 +358,26 @@ class AppUninstallRequest(BaseModel):
     delete_dns: bool = False
 
 
+class AppAdoptRequest(BaseModel):
+    container_names_or_ids: List[str] = Field(default_factory=list)
+    replace_existing: bool = False
+    force: bool = False
+
+
+class AppAdoptedContainer(BaseModel):
+    container_id: str
+    container_name: str
+    image: Optional[str] = None
+    status: Optional[str] = None
+    external: bool = True
+
+
+class AppAdoptResult(BaseModel):
+    app: AppSummary
+    containers: List[AppAdoptedContainer] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
 class AppSyncResponse(BaseResponse):
     data: JobInfo
 
@@ -372,6 +392,10 @@ class AppListResponse(BaseResponse):
 
 class AppDetailResponse(BaseResponse):
     data: AppDetail
+
+
+class AppAdoptResponse(BaseResponse):
+    data: AppAdoptResult
 
 
 class DataResponse(BaseResponse):

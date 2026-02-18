@@ -213,6 +213,67 @@ class AppCatalogService:
         finally:
             conn.close()
 
+    def delete_resource(self, app_id: str, resource_type: str, resource_name: str):
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM app_install_resources
+                WHERE app_id = %s AND resource_type = %s AND resource_name = %s
+                """,
+                (app_id, resource_type, resource_name),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def delete_resources_by_type(self, app_id: str, resource_type: str):
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                DELETE FROM app_install_resources
+                WHERE app_id = %s AND resource_type = %s
+                """,
+                (app_id, resource_type),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def list_container_resource_owners(
+        self,
+        container_name: str,
+        exclude_app_id: Optional[str] = None,
+    ) -> List[str]:
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            params: List[Any] = [container_name]
+            exclusion = ""
+            if exclude_app_id:
+                exclusion = " AND r.app_id <> %s"
+                params.append(exclude_app_id)
+
+            cursor.execute(
+                f"""
+                SELECT DISTINCT r.app_id
+                FROM app_install_resources r
+                LEFT JOIN app_installations i ON i.app_id = r.app_id
+                WHERE r.resource_type = 'container'
+                  AND r.resource_name = %s
+                  AND COALESCE(i.status, 'not_installed') = 'installed'
+                  {exclusion}
+                """,
+                tuple(params),
+            )
+            rows = cursor.fetchall()
+            return [row["app_id"] for row in rows if row.get("app_id")]
+        finally:
+            conn.close()
+
     def _row_to_entry(self, row: Dict[str, Any]) -> AppCatalogEntry:
         install_status = row.get("install_status") or "not_installed"
         row_dependencies_apps = row.get("dependencies_apps") or []

@@ -116,6 +116,27 @@ class FakeCatalogService:
         return SimpleNamespace(total=len(apps), upserted=len(apps))
 
 
+class FakeAdoptionService:
+    def adopt_app(
+        self,
+        app_id,
+        container_names_or_ids,
+        replace_existing=False,
+        force=False,
+    ):
+        return SimpleNamespace(
+            containers=[
+                SimpleNamespace(
+                    Id="container-123",
+                    Name=container_names_or_ids[0],
+                    Image="pihole/pihole:latest",
+                    Status="running",
+                )
+            ],
+            warnings=[],
+        )
+
+
 def test_list_apps_endpoint_returns_data():
     client = _client()
     with patch("hiveden.api.routers.appstore.AppCatalogService", FakeCatalogService):
@@ -228,3 +249,32 @@ def test_sync_endpoint_returns_job_id():
         response = client.post("/app-store/sync")
     assert response.status_code == 202
     assert response.json()["data"]["job_id"] == "job-123"
+
+
+def test_adopt_endpoint_returns_linked_containers():
+    client = _client()
+    with (
+        patch("hiveden.api.routers.appstore.AppCatalogService", FakeCatalogService),
+        patch("hiveden.api.routers.appstore.AppAdoptionService", FakeAdoptionService),
+    ):
+        response = client.post(
+            "/app-store/apps/bitcoin/adopt",
+            json={"container_names_or_ids": ["pihole"]},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["data"]["app"]["app_id"] == "bitcoin"
+    assert payload["data"]["containers"][0]["container_name"] == "pihole"
+    assert payload["data"]["containers"][0]["external"] is True
+
+
+def test_adopt_endpoint_requires_container_list():
+    client = _client()
+    with patch("hiveden.api.routers.appstore.AppCatalogService", FakeCatalogService):
+        response = client.post(
+            "/app-store/apps/bitcoin/adopt",
+            json={"container_names_or_ids": []},
+        )
+
+    assert response.status_code == 400

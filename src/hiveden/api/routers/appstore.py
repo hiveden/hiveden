@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.logger import logger
 
 from hiveden.api.dtos import (
+    AppAdoptRequest,
+    AppAdoptResponse,
     AppDetail,
     AppDetailResponse,
     AppInstallRequest,
@@ -15,6 +17,7 @@ from hiveden.api.dtos import (
     AppSyncResponse,
     AppUninstallRequest,
 )
+from hiveden.appstore.adoption_service import AppAdoptionService
 from hiveden.appstore.catalog_client import CatalogClient
 from hiveden.appstore.catalog_service import AppCatalogService
 from hiveden.appstore.install_service import AppInstallService
@@ -66,6 +69,16 @@ def _to_detail(entry) -> AppDetail:
         }
     )
     return AppDetail.model_validate(payload)
+
+
+def _to_adopted_container(container) -> dict:
+    return {
+        "container_id": container.Id,
+        "container_name": container.Name.lstrip("/"),
+        "image": container.Image,
+        "status": container.Status,
+        "external": True,
+    }
 
 
 @router.post("/sync", response_model=AppSyncResponse, status_code=202)
@@ -211,3 +224,53 @@ async def uninstall_app(app_id: str, payload: AppUninstallRequest):
             "data": {"job_id": job_id},
         }
     )
+
+
+@router.post("/apps/{app_id}/adopt", response_model=AppAdoptResponse)
+def adopt_existing_app_containers(app_id: str, payload: AppAdoptRequest):
+    service = AppCatalogService()
+    app = service.get_app(app_id)
+    if not app:
+        raise HTTPException(status_code=404, detail=f"App '{app_id}' not found")
+    if app.install_status in {"installing", "uninstalling"}:
+        raise HTTPException(
+            status_code=409, detail=f"App '{app_id}' is currently {app.install_status}"
+        )
+    if not payload.container_names_or_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one container name or ID is required",
+        )
+
+    adopter = AppAdoptionService()
+    try:
+        result = adopter.adopt_app(
+            app_id=app_id,
+            container_names_or_ids=payload.container_names_or_ids,
+            replace_existing=payload.replace_existing,
+            force=payload.force,
+        )
+        refreshed = service.get_app(app_id) or app
+        return AppAdoptResponse.model_validate(
+            {
+                "message": f"App {app_id} linked to existing container(s)",
+                "data": {
+                    "app": _to_summary(refreshed).model_dump(),
+                    "containers": [
+                        _to_adopted_container(container)
+                        for container in result.containers
+                    ],
+                    "warnings": result.warnings,
+                },
+            }
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error(
+            "Error linking existing containers for app %s: %s\n%s",
+            app_id,
+            exc,
+            traceback.format_exc(),
+        )
+        raise HTTPException(status_code=500, detail=str(exc))
